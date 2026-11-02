@@ -6,7 +6,7 @@ from vacuula_server.state import robot_connections
 from vacuula_server.handlers.events import notify_robots_changed
 from vacuula_server.gen3.utils import get_robot_serial
 from vacuula_server.db import get_session
-from vacuula_server.gen3.event_handler import robot_data
+from vacuula_server.gen3.event_handler import robot_data, reset_robot_buffer
 from vacuula_server.models.robot import Robot
 from sqlalchemy import select
 from typing import TYPE_CHECKING
@@ -30,7 +30,8 @@ def nucleo_init(req: RouterHandler) -> None:
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
     if hasattr(socket, "TCP_USER_TIMEOUT"):
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_USER_TIMEOUT, 20_000)
-    sock.settimeout(60)
+    # Give Gen 3 robots 180s leeway for Wi-Fi power-save / retries (heartbeats are ~30s)
+    sock.settimeout(180)
 
     req.send_response(200)
     req.send_header("Transfer-Encoding", "chunked")
@@ -49,10 +50,12 @@ def nucleo_init(req: RouterHandler) -> None:
             if not data:
                 break
             robot_data(serial, data)
-    except Exception:
-        traceback.print_exc()
-        pass
+    except TimeoutError:
+        logger.warning("Robot %s read timed out after 180s", serial)
+    except Exception as e:
+        logger.error("Robot %s connection error: %s", serial, e)
     finally:
+        reset_robot_buffer(serial)
         if robot_connections.get(serial) is conn:
             del robot_connections[serial]
             logger.info("Robot %s disconnected", serial)

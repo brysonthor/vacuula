@@ -10,20 +10,29 @@ logger = logging.getLogger(__name__)
 
 # per-robot temporary buffers
 # serial --> size
-robot_buffers = {}
+robot_buffers: dict[str, int] = {}
+
+def reset_robot_buffer(serial: str) -> None:
+    robot_buffers.pop(serial, None)
 
 def robot_data(serial: str, data: bytes):
     """Handle incoming data from robot"""
 
     # create robot state if missing
     if serial not in robot_buffers:
-        robot_buffers[serial] = int(data, 16)  # hex to int
+        try:
+            robot_buffers[serial] = int(data.strip(), 16)  # hex to int
+        except ValueError:
+            logger.warning("Invalid chunk length from %s: %r", serial, data)
         return
 
-    msg_size = robot_buffers[serial]
+    msg_size = robot_buffers.pop(serial, None)
 
     # remove last two bytes (\r\n)
     data = data[:-2]
+
+    if not data:
+        return
 
     if (chr(data[0]) != '{' and msg_size == 1):
         logger.debug("heartbeat from robot %s", serial)
@@ -62,5 +71,3 @@ def robot_data(serial: str, data: bytes):
 
     else:
         logger.error("no eventId or reqId in data from %s", serial)
-
-    del robot_buffers[serial]
