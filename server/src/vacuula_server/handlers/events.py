@@ -7,6 +7,7 @@ import threading
 from sqlalchemy import select
 
 from vacuula_server.db import get_session
+from vacuula_server.discord import notify_robot_connection
 from vacuula_server.gen3.data import Gen3Data
 from vacuula_server.gen4.data import Gen4Data
 from vacuula_server.models.robot import Robot
@@ -67,7 +68,15 @@ def broadcast(event: str, data) -> None:
 def notify_robots_changed() -> None:
     """Call after a robot connects, disconnects or is renamed."""
     try:
-        broadcast("robots", robots_snapshot())
+        snapshot = robots_snapshot()
+        broadcast("robots", snapshot)
+        for serial, info in snapshot.items():
+            notify_robot_connection(
+                serial=serial,
+                connected=info.get("connected", False),
+                robot_name=info.get("name"),
+                robot_type=info.get("type"),
+            )
     except Exception as e:
         logger.warning("robots event not sent: %s: %s", type(e).__name__, e)
 

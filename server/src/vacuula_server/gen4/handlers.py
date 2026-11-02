@@ -5,6 +5,7 @@ from sqlalchemy.util import b
 from vacuula_server.conn import RobotConn
 from vacuula_server.constants import MAPS_DIR
 from vacuula_server.db import get_session
+from vacuula_server.discord import notify_gen4_state, notify_run_completed
 from vacuula_server.gen4.data import Gen4Data
 from vacuula_server.gen4.map_utils import parse_session
 from vacuula_server.models.robot import Robot
@@ -167,9 +168,20 @@ def robot_response(rc: RobotConn, data: dict):
     slot = pending_requests.get(reqId)
     if slot is not None:
         slot.fulfill(data, data["code"])
+    body = data.get("body")
+    if isinstance(body, dict) and (body.get("state") is not None or body.get("action") is not None):
+        try:
+            notify_gen4_state(rc.serial, {"to": {"service": "peer.state"}, "body": body})
+        except Exception as e:
+            logger.debug("Discord notify_gen4_state failed: %s", e)
 
 
 def robot_event(rc: RobotConn, data: dict):
+    try:
+        notify_gen4_state(rc.serial, data)
+    except Exception as e:
+        logger.debug("Discord notify_gen4_state failed: %s", e)
+
     # broadcast to all clients subscribed to this robot
     clients_subscribed = [
         c for c in client_connections
@@ -259,6 +271,11 @@ def maps_create(rc: RobotConn, data: dict):
         ))
 
         session.commit()
+
+        try:
+            notify_run_completed(rc.serial, body, gen="gen4")
+        except Exception as e:
+            logger.warning("Discord notify_run_completed failed: %s", e)
     
     return { "floorplan": False }, 201
 

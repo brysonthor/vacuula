@@ -3,6 +3,7 @@ import logging
 from vacuula_server import state
 import json
 import time
+from vacuula_server.discord import notify_gen3_state
 from vacuula_server.state import pending_requests, put_drop_oldest
 import typing
 
@@ -55,7 +56,17 @@ def robot_data(serial: str, data: bytes):
         result = decoded.get("result")
         if slot is not None:
             slot.fulfill(data, 200 if result == "ok" else 400)
+        if decoded.get("state") is not None or decoded.get("action") is not None:
+            try:
+                notify_gen3_state(serial, decoded)
+            except Exception as e:
+                logger.debug("Discord notify_gen3_state failed: %s", e)
     elif eventId:
+        try:
+            notify_gen3_state(serial, decoded)
+        except Exception as e:
+            logger.debug("Discord notify_gen3_state failed: %s", e)
+
         clients = [c for c in state.client_connections if c["serial"] == serial]
         if clients:  # skip serializing when nobody is listening
             msg = json.dumps({

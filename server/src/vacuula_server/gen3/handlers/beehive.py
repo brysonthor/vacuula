@@ -6,6 +6,7 @@ from vacuula_server.gen3.data import Gen3Data
 from vacuula_server.gen3.utils import get_robot_serial
 from vacuula_server.gen3.map_utils import parse_session
 from vacuula_server.db import get_session, db_commit
+from vacuula_server.discord import notify_run_completed
 from vacuula_server.models.robot import Robot
 from vacuula_server.models.persistent_map import PersistentMap
 from vacuula_server.models.run import Gen3__Run
@@ -200,3 +201,8 @@ def upload_finish(req: RouterHandler, upload_type:Literal["maps", "logs"], job_i
             grun.run = run
 
         session.commit()
+
+        try:
+            notify_run_completed(serial, run, gen="gen3")
+        except Exception as e:
+            logger.warning("Discord notify_run_completed failed: %s", e)
