@@ -1,18 +1,66 @@
 @use '../../variables.scss' as *;
 
-// Canvas element
-.canvas {
-    display: block;
+.root {
+    position: relative;
+    display: flex;
+    flex-direction: column;
     width: 100%;
     height: 100%;
-    background: $bg;
 }
 
 // Container
 .container {
     position: relative;
     width: 100%;
-    height: 50%;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+}
+
+// Canvas element
+.canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.zoomToolbar {
+    position: absolute;
+    right: 1.2rem;
+    bottom: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    z-index: 5;
+}
+
+.zoomBtn {
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 0.8rem;
+    border: 1px solid $border;
+    background: rgba(18, 20, 24, 0.78);
+    backdrop-filter: blur(8px);
+    color: $text-primary;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: $shadow-sm;
+    transition: all 0.15s ease;
+
+    &:hover {
+        background: rgba(30, 34, 42, 0.95);
+        border-color: $accent;
+        color: $accent;
+    }
+}
+
+.actionFooter {
+    padding: 1.2rem 1.5rem;
+    border-top: 1px solid $border;
+    background: $surface;
+    flex-shrink: 0;
 }
 
 .drawerSection {

@@ -58,7 +58,7 @@ export const DRAWING = {
     CELL_OVERLAP_OFF: 0.8,
     MIN_LINE_WIDTH: 2,
     CLOSE_THRESHOLD: 0.02, // Normalized distance threshold for polygon closing
-    MIN_ZOOM: 1,
+    MIN_ZOOM: 0.05,
     MAX_ZOOM: 60,
     ZOOM_FACTOR: 1.1,
     PINCH_ZOOM_POWER: 0.5,

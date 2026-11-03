@@ -5,6 +5,8 @@ import {
     makeRectangleVertices,
     getWorldCoords,
     extractBasePose,
+    getMapContentBounds,
+    calcFitZoomAndOffset,
 } from './utils'
 import type { Point } from './types'
 
@@ -148,6 +150,82 @@ describe('map utils', () => {
             expect(extractBasePose({ base: [2147483647, 2147483647, 0] })).toBeNull()
             expect(extractBasePose(null)).toBeNull()
             expect(extractBasePose({})).toBeNull()
+        })
+    })
+
+    describe('getMapContentBounds', () => {
+        it('includes both floor (1) and wall (2) cells in the bounds', () => {
+            // 5x5 map with floor at (1, 1) and wall at (3, 3)
+            const mapSize = { width: 5, height: 5 }
+            const cells = new Array(25).fill(0)
+            cells[1 * 5 + 1] = 1 // floor
+            cells[3 * 5 + 3] = 2 // wall
+
+            const bounds = getMapContentBounds(cells, mapSize)
+            expect(bounds).toEqual({
+                minX: 1,
+                minY: 1,
+                maxX: 3,
+                maxY: 3,
+            })
+        })
+
+        it('includes runCells within the content bounds', () => {
+            const mapSize = { width: 5, height: 5 }
+            const cells = new Array(25).fill(0)
+            cells[2 * 5 + 2] = 1
+            const runCells = new Array(25).fill(0)
+            runCells[0 * 5 + 4] = 10 // run path extends to top right
+
+            const bounds = getMapContentBounds(cells, mapSize, runCells)
+            expect(bounds).toEqual({
+                minX: 2,
+                minY: 0,
+                maxX: 4,
+                maxY: 2,
+            })
+        })
+
+        it('returns null when no content exists', () => {
+            const mapSize = { width: 5, height: 5 }
+            const cells = new Array(25).fill(0)
+            expect(getMapContentBounds(cells, mapSize)).toBeNull()
+        })
+    })
+
+    describe('calcFitZoomAndOffset', () => {
+        it('calculates fit zoom and centered offset properly for large maps without clipping', () => {
+            // 500x500 map with content from (50, 50) to (450, 450)
+            const mapSize = { width: 500, height: 500 }
+            const cells = new Array(500 * 500).fill(0)
+            cells[50 * 500 + 50] = 1
+            cells[450 * 500 + 450] = 2
+
+            // Canvas is 200px wide and 200px high
+            const fit = calcFitZoomAndOffset(cells, mapSize, 200, 200, 0.05, 60, 0.9)
+            expect(fit).not.toBeNull()
+            if (!fit) return
+
+            // Content width/height is 401. With padding 0.9, available size is 180px.
+            // Expected zoom: 180 / 401 ~= 0.4488
+            expect(fit.zoom).toBeCloseTo(180 / 401, 3)
+
+            // Verify content is centered in the canvas:
+            // contentCenter = 50 + 401 / 2 = 250.5
+            // offset = 200 / 2 - 250.5 * zoom = 100 - 250.5 * zoom
+            const expectedOffset = 100 - 250.5 * fit.zoom
+            expect(fit.offset.x).toBeCloseTo(expectedOffset, 2)
+            expect(fit.offset.y).toBeCloseTo(expectedOffset, 2)
+
+            // Top-most content point at y=50 in screen coordinates:
+            const topScreenY = fit.offset.y + 50 * fit.zoom
+            // Bottom-most content point at y=450 in screen coordinates:
+            const bottomScreenY = fit.offset.y + 450 * fit.zoom
+
+            // Both must be strictly inside the canvas (0..200), not cut off!
+            expect(topScreenY).toBeGreaterThanOrEqual(0)
+            expect(bottomScreenY).toBeLessThanOrEqual(200)
+            expect(topScreenY).toBeCloseTo(10, 0)
         })
     })
 })

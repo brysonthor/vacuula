@@ -7,6 +7,8 @@ import { Http } from '../../http'
 import { usePersistentMap } from '../../loaders/resources'
 import { useTranslation } from 'react-i18next'
 import { useCallback, useEffect, useState } from 'react'
+import { FaMinus, FaPlus } from 'react-icons/fa'
+import { MdFilterCenterFocus } from 'react-icons/md'
 import { drawBase, onDockImageReady } from './drawingFunctions'
 import type { ExtraDrawFn } from './useMap'
 import { extractBasePose } from './utils'
@@ -20,7 +22,7 @@ interface MapProps {
 export default function Map({ mapId, runId }: MapProps) {
     const { t } = useTranslation()
     const { robot } = useRobot()
-    const { data: persistantMapData, refresh: refreshPersistantMapData } = usePersistentMap(mapId);
+    const { data: persistantMapData, refresh: refreshPersistantMapData } = usePersistentMap(mapId)
 
     const [dockReady, setDockReady] = useState(false)
     useEffect(() => { onDockImageReady(() => setDockReady(true)) }, [])
@@ -38,7 +40,7 @@ export default function Map({ mapId, runId }: MapProps) {
         }
     }, [persistantMapData, dockReady, robot])
 
-    const { canvasRef, isDragging, canvasHandlers } = useMap({
+    const { canvasRef, isDragging, canvasHandlers, resetView, zoomBy } = useMap({
         mapId,
         runId,
         extraDraw,
@@ -46,7 +48,7 @@ export default function Map({ mapId, runId }: MapProps) {
     })
 
     return (
-        <>
+        <div className={styles.root}>
             <div className={styles.container}>
                 <canvas
                     ref={canvasRef}
@@ -57,13 +59,38 @@ export default function Map({ mapId, runId }: MapProps) {
                         touchAction: 'none'
                     }}
                 />
-
+                <div className={styles.zoomToolbar}>
+                    <button
+                        type="button"
+                        className={styles.zoomBtn}
+                        onClick={() => zoomBy(1.25)}
+                        title={t('map.zoomIn', 'Zoom In')}
+                    >
+                        <FaPlus size={13} />
+                    </button>
+                    <button
+                        type="button"
+                        className={styles.zoomBtn}
+                        onClick={() => zoomBy(0.8)}
+                        title={t('map.zoomOut', 'Zoom Out')}
+                    >
+                        <FaMinus size={13} />
+                    </button>
+                    <button
+                        type="button"
+                        className={styles.zoomBtn}
+                        onClick={resetView}
+                        title={t('map.resetView', 'Reset View')}
+                    >
+                        <MdFilterCenterFocus size={16} />
+                    </button>
+                </div>
             </div>
             {robot.type === RobotType.NeatoGen4 && !persistantMapData?.in_maps_list && (
-                <div style={{ padding: '1.5rem' }}>
+                <div className={styles.actionFooter}>
                     <Button text={t('map.useAsFloormap')} style='success' onClick={() => { Http.postUseMapAsFloorPlan(robot.serial, mapId).then(refreshPersistantMapData) }} />
                 </div>
             )}
-        </>
+        </div>
     )
 }

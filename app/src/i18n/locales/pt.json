@@ -159,6 +159,9 @@
         "polygonHint": "Para criar uma linha No-Go, não prima o botão para fechar o polígono.",
         "lineHint": "Para criar uma zona, mova o cursor até ao primeiro ponto e prima o botão de zona (botão do lado direito); isto liga os pontos e cria uma zona.",
         "drawHint": "Desenhar uma linha cria uma linha No-Go; usar o botão de polígono para ligar o cursor ao primeiro ponto cria uma zona ou zona No-Go.",
+        "zoomIn": "Aproximar",
+        "zoomOut": "Afastar",
+        "resetView": "Ajustar mapa",
         "promote": "Usar mapa",
         "demote": "Parar de usar mapa",
         "gen4UpdateBugHint": "O Vacuula guarda e restaura automaticamente os seus agendamentos Gen 4 ao modificar mapas."

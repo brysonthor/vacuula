@@ -89,6 +89,35 @@ export function useMap({
         handleWheel(e)
     }, [handleWheel])
 
+    const fitView = useCallback((currentMapSize?: MapSize, currentCells?: number[]) => {
+        const ms = currentMapSize ?? mapSize
+        const cells = currentCells ?? cellsRef.current
+        const canvas = canvasRef.current
+        const parent = canvas?.parentElement
+        if (!canvas || !parent || !cells || !ms) return
+        const { width, height } = parent.getBoundingClientRect()
+        if (width <= 0 || height <= 0) return
+        canvas.width = width
+        canvas.height = height
+        const fit = calcFitZoomAndOffset(
+            cells,
+            ms,
+            width,
+            height,
+            DRAWING.MIN_ZOOM,
+            DRAWING.MAX_ZOOM,
+            0.9,
+            runCellsRef.current,
+            runIgnoreSetRef.current
+        )
+        if (fit) {
+            setZoom(fit.zoom)
+            setOffset(fit.offset)
+        } else {
+            centerView(ms.width, ms.height, 4, width, height)
+        }
+    }, [mapSize, centerView, setZoom, setOffset])
+
     const { data: persistantMapData, refresh: updatePersistantMapData } = usePersistentMap(mapId);
     const { data: cleaningData, refresh: updateCleaningData } = useCleaning(runId ?? '');
 
@@ -106,17 +135,23 @@ export function useMap({
     useEffect(() => {
         if (!persistantMapData) return
         cellsRef.current = decodeRLE(persistantMapData.rle)
-        setMapSize({ height: persistantMapData.height, width: persistantMapData.width })
-    }, [persistantMapData])
+        const newMapSize = { height: persistantMapData.height, width: persistantMapData.width }
+        setMapSize(newMapSize)
+        if (fitOnLoad && !userInteractedRef.current) {
+            fitView(newMapSize, cellsRef.current)
+        }
+    }, [persistantMapData, fitOnLoad, fitView])
 
     useEffect(() => {
-        // TODO: should size be matched?
         if (!cleaningData) return;
         const runCells = decodeRLE(cleaningData.rle);
         runCellsRef.current = runCells;
         runIgnoreSetRef.current = computeIgnoredRunValues(runCellsRef.current, robot.type === RobotType.NeatoGen4 ? 1 : 2);
+        if (fitOnLoad && !userInteractedRef.current && cellsRef.current && mapSize) {
+            fitView()
+        }
         draw()
-    }, [cleaningData])
+    }, [cleaningData, robot.type, fitOnLoad, mapSize, fitView, draw])
 
     // Redraw on viewport change, or when caller's overlay-relevant state changes
     useEffect(() => {
@@ -133,20 +168,12 @@ export function useMap({
 
         const resizeToContainer = () => {
             const { width, height } = parent.getBoundingClientRect()
+            if (width <= 0 || height <= 0) return
             canvas.width = width
             canvas.height = height
 
             if (fitOnLoad && cellsRef.current && mapSize && !userInteractedRef.current) {
-                const fit = calcFitZoomAndOffset(
-                    cellsRef.current, mapSize, width, height,
-                    DRAWING.MIN_ZOOM, DRAWING.MAX_ZOOM
-                )
-                if (fit) {
-                    setZoom(fit.zoom)
-                    setOffset(fit.offset)
-                    return
-                }
-                centerView(mapSize.width, mapSize.height, 4, width, height)
+                fitView()
                 return
             }
             draw()
@@ -156,7 +183,7 @@ export function useMap({
         const ro = new ResizeObserver(resizeToContainer)
         ro.observe(parent)
         return () => ro.disconnect()
-    }, [mapSize, fitOnLoad])
+    }, [mapSize, fitOnLoad, fitView, draw])
 
     // Selecting a different map should auto-fit, not inherit the previous map's pan/zoom.
     useEffect(() => {
@@ -165,16 +192,8 @@ export function useMap({
 
     const resetView = useCallback(() => {
         userInteractedRef.current = false
-        const canvas = canvasRef.current
-        const parent = canvas?.parentElement
-        if (!canvas || !parent || !cellsRef.current || !mapSize) return
-        const { width, height } = parent.getBoundingClientRect()
-        const fit = calcFitZoomAndOffset(cellsRef.current, mapSize, width, height, DRAWING.MIN_ZOOM, DRAWING.MAX_ZOOM)
-        if (fit) {
-            setZoom(fit.zoom)
-            setOffset(fit.offset)
-        }
-    }, [mapSize])
+        fitView()
+    }, [fitView])
 
     const zoomBy = useCallback((factor: number) => {
         userInteractedRef.current = true

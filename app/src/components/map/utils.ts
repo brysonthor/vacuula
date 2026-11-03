@@ -122,23 +122,30 @@ export const upsertPreserveOrder = <T extends { id: string }>(
 export const CELL_FILTERS = {
     any: (v: number) => v !== 0,
     wallsOnly: (v: number) => v !== 0 && v !== 1,
-    freeSpaceOnly: (v: number) => v === 2,
+    freeSpaceOnly: (v: number) => v === 1,
 } as const
 
 
 export function getMapContentBounds(
     cells: number[],
-    mapSize: { width: number; height: number }
+    mapSize: { width: number; height: number },
+    runCells?: number[] | null,
+    ignoreRunValues?: Set<number>
 ): { minX: number; minY: number; maxX: number; maxY: number } | null {
     let minX = mapSize.width
     let minY = mapSize.height
     let maxX = -1
     let maxY = -1
 
+    const hasRun = !!runCells && runCells.length === cells.length
+
     for (let y = 0; y < mapSize.height; y++) {
         const row = y * mapSize.width
         for (let x = 0; x < mapSize.width; x++) {
-            if (CELL_FILTERS.freeSpaceOnly(cells[row + x])) {
+            const idx = row + x
+            const isFloorOrWall = cells[idx] !== 0
+            const isRun = hasRun && runCells![idx] !== 0 && !ignoreRunValues?.has(runCells![idx])
+            if (isFloorOrWall || isRun) {
                 if (x < minX) minX = x
                 if (x > maxX) maxX = x
                 if (y < minY) minY = y
@@ -159,13 +166,17 @@ export function calcFitZoomAndOffset(
     canvasHeight: number,
     minZoom: number,
     maxZoom: number,
-    padding = 0.9 // fraction of canvas the content should occupy
+    padding = 0.9, // fraction of canvas the content should occupy
+    runCells?: number[] | null,
+    ignoreRunValues?: Set<number>
 ): { zoom: number; offset: { x: number; y: number } } | null {
-    const bounds = getMapContentBounds(cells, mapSize)
+    const bounds = getMapContentBounds(cells, mapSize, runCells, ignoreRunValues)
     if (!bounds) return null
 
     const contentWidth = bounds.maxX - bounds.minX + 1
     const contentHeight = bounds.maxY - bounds.minY + 1
+
+    if (contentWidth <= 0 || contentHeight <= 0) return null
 
     const zoomX = (canvasWidth * padding) / contentWidth
     const zoomY = (canvasHeight * padding) / contentHeight

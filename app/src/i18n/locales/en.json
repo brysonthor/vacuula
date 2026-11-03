@@ -165,6 +165,9 @@
         "polygonHint": "To make a no-go line, don't press the button to close the polygon.",
         "lineHint": "To make a zone, move the cursor to the first point and click the zone button (the one on the right); this connects the points and makes a zone.",
         "drawHint": "Drawing a line makes a no-go line; using the polygon button to connect the cursor with the first point makes a zone.",
+        "zoomIn": "Zoom In",
+        "zoomOut": "Zoom Out",
+        "resetView": "Reset View",
         "promote": "Use map",
         "demote": "Stop using map",
         "gen4UpdateBugHint": "Vacuula automatically snapshots and restores your Gen 4 schedules when promoting or modifying floorplans."
