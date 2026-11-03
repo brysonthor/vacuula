@@ -68,8 +68,20 @@ class RouterHandler(BaseHTTPRequestHandler):
     # Serve files from assets folder with long long cache
     # hash will change on update, and since index.html is checked per boot, will be good
     def serve_web(self):
-        relative = self.path.split("?", 1)[0]
-        requested = (WEB_ROOT / relative.lstrip("/")).resolve()
+        clean_path = self.path.split("?", 1)[0]
+        relative = clean_path.lstrip("/")
+
+        # Handle requests for assets, icons, or manifest originating from subroutes (e.g. /robot/:serial/assets/...)
+        if "/assets/" in clean_path:
+            relative = "assets/" + clean_path.split("/assets/", 1)[1]
+        elif "/icons/" in clean_path:
+            relative = "icons/" + clean_path.split("/icons/", 1)[1]
+        elif clean_path.endswith("favicon-vacuula.svg"):
+            relative = "favicon-vacuula.svg"
+        elif clean_path.endswith("manifest-vacuula.webmanifest"):
+            relative = "manifest-vacuula.webmanifest"
+
+        requested = (WEB_ROOT / relative).resolve()
 
         if not _is_within_web_root(requested):
             self.send_not_found()

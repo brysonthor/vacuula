@@ -238,10 +238,10 @@ export default function Home() {
     const canDock =
         robot.online &&
         !currentlyDocked &&
-        (robot.availableCommands.pause ||
+        (!!robot.availableCommands?.pause ||
             (robot.type === RobotType.NeatoGen3
-                ? robot.availableCommands.goToBase
-                : robot.availableCommands.return_to_base) ||
+                ? !!(robot.availableCommands as any)?.goToBase
+                : !!(robot.availableCommands as any)?.return_to_base) ||
             !isBusy)
 
     const [dockingLoading, setDockingLoading] = useState(false)
