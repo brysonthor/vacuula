@@ -220,3 +220,6 @@ __marimo__/
 server/data
 server/web
 data-dev
+/data
+/docker-compose.yml
+/NETWORKING.md

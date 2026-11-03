@@ -7,8 +7,7 @@ name: Docker build & release
 # When using release, making a beta (-b or similar) it will make a prerelease, if no beta marker, it will make a draft release to be published
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write

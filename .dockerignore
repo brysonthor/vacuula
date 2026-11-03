@@ -12,6 +12,8 @@ app/.cache
 
 server/data
 server/web
+data
+docker-compose.yml
 
 .env
 .env.*
