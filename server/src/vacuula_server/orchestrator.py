@@ -687,7 +687,9 @@ def start_clean_here(serial: str, data: dict[str, Any]) -> tuple[int, dict[str, 
             timeout_s=20.0,
         )
         if st_set != 200 or (isinstance(resp_set, dict) and resp_set.get("result") != "ok"):
-            return 502, {"error": "Failed to save temporary zone on robot"}
+            err_msg = (resp_set.get("result") or resp_set.get("error")) if isinstance(resp_set, dict) else f"HTTP {st_set}"
+            logger.error(f"Failed to save temporary zone on {serial}: status={st_set} resp={resp_set}")
+            return 502, {"error": f"Failed to save temporary zone on robot ({err_msg})"}
 
         # Retrieve assigned boundary ID
         assigned_boundaries = (resp_set.get("data") or {}).get("boundaries") if isinstance(resp_set, dict) else None
@@ -721,9 +723,13 @@ def start_clean_here(serial: str, data: dict[str, Any]) -> tuple[int, dict[str, 
             timeout_s=20.0,
         )
         if st_start != 200 or (isinstance(resp_start, dict) and resp_start.get("result") != "ok"):
+            err_msg = (resp_start.get("result") or resp_start.get("error")) if isinstance(resp_start, dict) else f"HTTP {st_start}"
+            logger.error(f"Robot {serial} rejected startCleaning: status={st_start} resp={resp_start}")
             # Clean up immediately on failure
             _cleanup_gen3_ephemeral(serial, map_id)
-            return 502, {"error": "Robot rejected Clean Here command"}
+            if err_msg == "not_on_charge_base":
+                return 400, {"error": "Robot must be on its charge base to start zone cleaning"}
+            return 502, {"error": f"Robot rejected Clean Here command ({err_msg})"}
 
         with _orch_lock:
             _ephemeral_cleanups[serial] = {
@@ -789,7 +795,9 @@ def start_clean_here(serial: str, data: dict[str, Any]) -> tuple[int, dict[str, 
         session.commit()
 
     if st_start != 200:
-        return st_start, {"error": "Robot failed to start Clean Here"}
+        err_msg = (resp_start.get("error") or resp_start.get("message")) if isinstance(resp_start, dict) else f"HTTP {st_start}"
+        logger.error(f"Robot {serial} failed to start Gen 4 Clean Here: status={st_start} resp={resp_start}")
+        return st_start, {"error": f"Robot failed to start Clean Here ({err_msg})"}
 
     with _orch_lock:
         _ephemeral_cleanups[serial] = {
@@ -811,17 +819,30 @@ def _cleanup_gen3_ephemeral(serial: str, map_id: str) -> None:
     if st != 200 or not isinstance(resp, dict):
         return
     boundaries = (resp.get("data") or {}).get("boundaries") or []
-    filtered = [
-        {
-            "type": b.get("type", "polygon"),
-            "vertices": b.get("vertices", []),
-            "name": b.get("name", ""),
-            "color": b.get("color", "#00E5A3"),
-            "enabled": bool(b.get("enabled", True)),
-        }
-        for b in boundaries
-        if isinstance(b, dict) and b.get("name") != "__vacuula_clean_here__"
-    ]
+    def _calc_relevancy(v_list: list[list[float]]) -> list[float]:
+        if not v_list:
+            return [0.0, 0.0]
+        cx = sum(p[0] for p in v_list) / len(v_list)
+        cy = sum(p[1] for p in v_list) / len(v_list)
+        return [round(cx, 4), round(cy, 4)]
+
+    filtered = []
+    for b in boundaries:
+        if isinstance(b, dict) and b.get("name") != "__vacuula_clean_here__":
+            b_type = b.get("type", "polygon")
+            b_verts = b.get("vertices", [])
+            item: dict[str, Any] = {
+                "id": b.get("id") or str(uuid.uuid4()),
+                "type": b_type,
+                "vertices": b_verts,
+                "name": b.get("name", ""),
+                "color": b.get("color", "#00E5A3"),
+                "enabled": bool(b.get("enabled", True)),
+            }
+            if b_type == "polygon":
+                item["relevancy"] = b.get("relevancy") or _calc_relevancy(b_verts)
+            filtered.append(item)
+
     if len(filtered) != len(boundaries):
         send_robot_command_sync(
             serial,
