@@ -12,7 +12,8 @@ from vacuula_server.state import robot_connections
 
 logger = logging.getLogger(__name__)
 
-ROBOT_SOCKET_TIMEOUT_S = 20
+ROBOT_SOCKET_TIMEOUT_S = 60
+ROBOT_TCP_USER_TIMEOUT_MS = 90_000
 
 def start():
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -33,7 +34,14 @@ def start():
 
             try:
                 client.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-                client.setsockopt(socket.IPPROTO_TCP, socket.TCP_USER_TIMEOUT, 20_000)
+                if hasattr(socket, "TCP_KEEPIDLE"):
+                    client.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 60)
+                if hasattr(socket, "TCP_KEEPINTVL"):
+                    client.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
+                if hasattr(socket, "TCP_KEEPCNT"):
+                    client.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
+                if hasattr(socket, "TCP_USER_TIMEOUT"):
+                    client.setsockopt(socket.IPPROTO_TCP, socket.TCP_USER_TIMEOUT, ROBOT_TCP_USER_TIMEOUT_MS)
 
                 try:
                     tls = ctx.wrap_socket(client, server_side=True)
