@@ -34,6 +34,7 @@ export default function Fleet() {
     const { mascot } = useMascot()
     const timeAgoFormatter = useTimeAgoFormatter()
     const navigate = useNavigate()
+    const [dockingSerials, setDockingSerials] = useState<Record<string, boolean>>({})
 
     if (!robots) return <Loading />
 
@@ -67,8 +68,6 @@ export default function Fleet() {
             GEN4_COMMANDS.startCleaning(serial, getGen4CleaningMode(), getGen4NavigationMode())
         }
     }
-
-    const [dockingSerials, setDockingSerials] = useState<Record<string, boolean>>({})
 
     const handleQuickDock = async (serial: string, info: QuickRobotEntry) => {
         if (!info.connected || dockingSerials[serial]) return
