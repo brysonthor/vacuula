@@ -25,18 +25,34 @@ def start():
         logger.info("Gen4 listening on %s:%d", HOST_IP, GEN4_PORT)
 
         while True:
-            client, addr = sock.accept()
-            client.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-            client.setsockopt(socket.IPPROTO_TCP, socket.TCP_USER_TIMEOUT, 20_000)
-
             try:
-                tls = ctx.wrap_socket(client, server_side=True)
-            except ssl.SSLError as e:
-                logger.error("TLS handshake failed from %s: %s", addr, e)
-                client.close()
+                client, addr = sock.accept()
+            except Exception as e:
+                logger.error("Gen4 accept failed: %s", e)
                 continue
 
-            threading.Thread(target=handle_robot, args=(tls, addr), daemon=True).start()
+            try:
+                client.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                client.setsockopt(socket.IPPROTO_TCP, socket.TCP_USER_TIMEOUT, 20_000)
+
+                try:
+                    tls = ctx.wrap_socket(client, server_side=True)
+                except (ssl.SSLError, OSError) as e:
+                    logger.warning("TLS handshake failed from %s: %s", addr, e)
+                    try:
+                        client.close()
+                    except Exception:
+                        pass
+                    continue
+
+                threading.Thread(target=handle_robot, args=(tls, addr), daemon=True).start()
+            except Exception as e:
+                logger.error("Error setting up Gen4 connection from %s: %s", addr, e)
+                try:
+                    client.close()
+                except Exception:
+                    pass
+                continue
 
 
 
@@ -116,7 +132,7 @@ def handle_robot(conn, addr):
         traceback.print_exc()
     finally:
         rc.stop_event.set()
-        del robot_connections[rc.serial]
+        robot_connections.pop(rc.serial, None)
         logger.info("Robot %s disconnected", rc.serial or addr)
         notify_robots_changed()
         try:
