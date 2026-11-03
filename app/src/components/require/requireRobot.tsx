@@ -3,6 +3,6 @@ import { useApp } from '../../context/useApp'
 
 export function RequireRobot({ children }: { children: ReactNode }) {
     const { robot } = useApp()
-    if (!robot) return;
+    if (!robot) return null;
     return <>{children}</>
 }

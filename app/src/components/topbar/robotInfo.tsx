@@ -10,7 +10,7 @@ import { MdOutlineExplore } from 'react-icons/md'
 import { RiTestTubeFill } from 'react-icons/ri'
 import type { IconType } from 'react-icons'
 import Battery from '../battery/Battery'
-import { useRobot } from '../../context/useRobot'
+import { useApp } from '../../context/useApp'
 import { RobotType, type Robot } from '../../types'
 import { BasicState, resolveRobotState } from '../../utils/state'
 import { useTranslation } from 'react-i18next'
@@ -65,7 +65,8 @@ export function isGen4D10(_: Robot) {
 
 // leading slot — sits before the name
 export function RobotStateIcon() {
-    const { robot } = useRobot()
+    const { robot } = useApp()
+    if (!robot) return null
     if (!robot.online) {
         return <MdCloudOff size={22} color="var(--text-muted)" className={styles.stateIcon} />
     }
@@ -76,7 +77,8 @@ export function RobotStateIcon() {
 // trailing slot — sits after the name, before the chevron
 export function RobotStatusBadges() {
     const { t } = useTranslation()
-    const { robot } = useRobot()
+    const { robot } = useApp()
+    if (!robot) return null
     return (
         <div className={styles.status}>
             {!robot.online && <span className={styles.offlineBadge}>{t('common.offline')}</span>}
