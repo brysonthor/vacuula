@@ -12,7 +12,7 @@ import {
     MdRepeat,
     MdWarning,
 } from 'react-icons/md'
-import { IoMdPause, IoMdPlay } from 'react-icons/io'
+import { IoMdPause, IoMdPlay, IoMdRefresh } from 'react-icons/io'
 import { IoArrowDown, IoArrowUp, IoClose, IoGameControllerOutline, IoMapOutline } from 'react-icons/io5'
 import { TbAdjustments, TbBolt, TbHome, TbLeaf } from 'react-icons/tb'
 import { FaBell, FaFan, FaStop } from 'react-icons/fa'
@@ -234,6 +234,40 @@ export default function Home() {
     // Poll active Gen 4 cleaning telemetry when busy
     const basicState = resolveRobotState(robot)
     const isBusy = basicState === BasicState.CLEANING || basicState === BasicState.DOCKING
+    const currentlyDocked = isDocked(robot)
+    const canDock =
+        robot.online &&
+        !currentlyDocked &&
+        (robot.availableCommands.pause ||
+            (robot.type === RobotType.NeatoGen3
+                ? robot.availableCommands.goToBase
+                : robot.availableCommands.return_to_base) ||
+            !isBusy)
+
+    const [dockingLoading, setDockingLoading] = useState(false)
+    const [dockFeedback, setDockFeedback] = useState<{ message: string; error?: boolean } | null>(null)
+
+    const handleDock = async () => {
+        if (!robot.online || dockingLoading) return
+        setDockingLoading(true)
+        setDockFeedback(null)
+        try {
+            const res = await Http.dockRobot(robot.serial)
+            const msg = res.data?.message || t('home.returningToBase', 'Returning to base')
+            setDockFeedback({ message: msg, error: !res.data?.ok })
+            setTimeout(() => setDockFeedback(null), 5000)
+        } catch (err: any) {
+            const errorMsg =
+                err?.response?.data?.error ||
+                err?.message ||
+                t('home.dockFailed', 'Failed to return to base')
+            setDockFeedback({ message: errorMsg, error: true })
+            setTimeout(() => setDockFeedback(null), 6000)
+        } finally {
+            setDockingLoading(false)
+        }
+    }
+
     const [gen4Session, setGen4Session] = useState<Neato.Gen4.CleaningInfo | null>(null)
 
     useEffect(() => {
@@ -955,41 +989,28 @@ export default function Home() {
                             <button
                                 type="button"
                                 className={styles.secondaryTransportBtn}
-                                disabled={
-                                    !robot.online ||
-                                    (!robot.availableCommands.pause &&
-                                        !(robot.type === RobotType.NeatoGen3
-                                            ? robot.availableCommands.goToBase
-                                            : robot.availableCommands.return_to_base))
-                                }
-                                onClick={() => {
-                                    if (robot.availableCommands.pause) {
-                                        ;(robot.type === RobotType.NeatoGen3
-                                            ? GEN3_COMMANDS
-                                            : GEN4_COMMANDS
-                                        )
-                                            .pauseCleaning(robot.serial)
-                                            .then(() => {
-                                                setTimeout(() => {
-                                                    ;(robot.type === RobotType.NeatoGen3
-                                                        ? GEN3_COMMANDS
-                                                        : GEN4_COMMANDS
-                                                    ).sendToBase(robot.serial)
-                                                }, 3500)
-                                            })
-                                    } else {
-                                        ;(robot.type === RobotType.NeatoGen3
-                                            ? GEN3_COMMANDS
-                                            : GEN4_COMMANDS
-                                        ).sendToBase(robot.serial)
-                                    }
-                                }}
+                                disabled={!canDock || dockingLoading}
+                                onClick={handleDock}
                                 title={t('home.base')}
                             >
-                                <TbHome size={20} />
-                                <span>{t('home.base')}</span>
+                                {dockingLoading ? (
+                                    <IoMdRefresh size={20} className={styles.spin} />
+                                ) : (
+                                    <TbHome size={20} />
+                                )}
+                                <span>{dockingLoading ? t('home.docking', 'Docking...') : t('home.base')}</span>
                             </button>
                         </div>
+
+                        {dockFeedback && (
+                            <div
+                                className={`${styles.dockFeedback} ${
+                                    dockFeedback.error ? styles.dockFeedbackError : ''
+                                }`}
+                            >
+                                {dockFeedback.message}
+                            </div>
+                        )}
 
                         {/* Utility Actions Row */}
                         <div className={styles.utilityRow}>

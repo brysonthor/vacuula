@@ -276,6 +276,16 @@ export class Http {
     return instance.post<{ ok: boolean; error?: string }>(`/robot/${serial}/clean-here`, data)
   }
 
+  static dockRobot(serial: string) {
+    return instance.post<{
+      ok: boolean
+      message?: string
+      docking?: boolean
+      docked?: boolean
+      error?: string
+    }>(`/robot/${serial}/dock`, {})
+  }
+
   // Gen 3 Manual Remote Drive
   static driveStart(serial: string) {
     return instance.post<DriveStatus>(`/robot/${serial}/drive/start`, {})

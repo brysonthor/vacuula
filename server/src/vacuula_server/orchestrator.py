@@ -500,6 +500,118 @@ def _advance_gen3_queue_worker(serial: str, queue_id: str, next_idx: int) -> Non
 # Ephemeral "Clean Here" (Gen 3 & Gen 4)
 # ---------------------------------------------------------------------------
 
+
+def dock_robot(serial: str) -> tuple[int, dict[str, Any]]:
+    """Direct a robot to return to base cleanly, handling any necessary pause transitions,
+    state polling, and generation-specific command requirements."""
+    if serial not in robot_connections:
+        return 400, {"ok": False, "error": "Robot not connected"}
+
+    is_gen3 = "-" in serial
+
+    if is_gen3:
+        # Cancel any active multi-zone queue
+        cancel_gen3_zone_queue(serial, stop_robot=False)
+
+        st, state = send_robot_command_sync(serial, {"cmd": "getRobotState"}, timeout_s=4.0)
+        state_dict = state if (st == 200 and isinstance(state, dict)) else {}
+        details = state_dict.get("details") or {}
+        cmds = state_dict.get("availableCommands") or {}
+
+        if details.get("isDocked"):
+            return 200, {"ok": True, "message": "Robot is already docked", "docking": False, "docked": True}
+
+        if cmds.get("goToBase"):
+            st_b, resp_b = send_robot_command_sync(serial, {"cmd": "sendToBase"}, timeout_s=10.0)
+            if st_b == 200 and isinstance(resp_b, dict) and resp_b.get("result") == "ok":
+                return 200, {"ok": True, "message": "Returning to base", "docking": True, "docked": False}
+            return 502, {"ok": False, "error": f"Failed to return to base: {resp_b}"}
+
+        if cmds.get("pause"):
+            logger.info("Pausing Gen 3 robot %s before sending to base", serial)
+            st_p, resp_p = send_robot_command_sync(serial, {"cmd": "pauseCleaning"}, timeout_s=10.0)
+            if st_p != 200 or (isinstance(resp_p, dict) and resp_p.get("result") != "ok"):
+                return 502, {"ok": False, "error": f"Failed to pause cleaning: {resp_p}"}
+
+            deadline = time.time() + 15.0
+            while time.time() < deadline:
+                time.sleep(0.6)
+                st_cur, r_cur = send_robot_command_sync(serial, {"cmd": "getRobotState"}, timeout_s=3.0)
+                if st_cur == 200 and isinstance(r_cur, dict):
+                    cur_cmds = r_cur.get("availableCommands") or {}
+                    if cur_cmds.get("goToBase"):
+                        st_b, resp_b = send_robot_command_sync(serial, {"cmd": "sendToBase"}, timeout_s=10.0)
+                        if st_b == 200 and isinstance(resp_b, dict) and resp_b.get("result") == "ok":
+                            return 200, {"ok": True, "message": "Returning to base", "docking": True, "docked": False}
+                        return 502, {"ok": False, "error": f"Failed to return to base: {resp_b}"}
+
+                    cur_details = r_cur.get("details") or {}
+                    cur_clean = r_cur.get("cleaning") or {}
+                    if cur_clean.get("category") == 3 or (cur_details.get("dockHasBeenSeen") is False and r_cur.get("state") == 3):
+                        send_robot_command_sync(serial, {"cmd": "stopCleaning"}, timeout_s=5.0)
+                        return 200, {
+                            "ok": True,
+                            "message": "Robot stopped. (Cannot return to base: no dock reference available for this run)",
+                            "docking": False,
+                            "docked": False,
+                        }
+
+            st_b, resp_b = send_robot_command_sync(serial, {"cmd": "sendToBase"}, timeout_s=8.0)
+            if st_b == 200 and isinstance(resp_b, dict) and resp_b.get("result") == "ok":
+                return 200, {"ok": True, "message": "Returning to base", "docking": True, "docked": False}
+            return 400, {"ok": False, "error": "Robot was paused, but could not return to base."}
+
+        st_b, resp_b = send_robot_command_sync(serial, {"cmd": "sendToBase"}, timeout_s=8.0)
+        if st_b == 200 and isinstance(resp_b, dict) and resp_b.get("result") == "ok":
+            return 200, {"ok": True, "message": "Returning to base", "docking": True, "docked": False}
+        return 400, {"ok": False, "error": "Robot cannot return to base in its current state."}
+
+    else:
+        # Gen 4
+        st, resp = send_robot_command_sync(serial, {"ability": "state.show"}, timeout_s=4.0)
+        resp_dict = resp if (st == 200 and isinstance(resp, dict)) else {}
+        body = resp_dict.get("body") or resp_dict
+        details = body.get("details") or {}
+        cmds = body.get("available_commands") or {}
+
+        if details.get("is_docked"):
+            return 200, {"ok": True, "message": "Robot is already docked", "docking": False, "docked": True}
+
+        if cmds.get("return_to_base"):
+            st_b, resp_b = send_robot_command_sync(serial, {"ability": "navigation.return_to_base"}, timeout_s=10.0)
+            if st_b == 200:
+                return 200, {"ok": True, "message": "Returning to base", "docking": True, "docked": False}
+            return 502, {"ok": False, "error": f"Failed to return to base: {resp_b}"}
+
+        if cmds.get("pause"):
+            logger.info("Pausing Gen 4 robot %s before sending to base", serial)
+            st_p, resp_p = send_robot_command_sync(serial, {"ability": "cleaning.pause"}, timeout_s=10.0)
+            if st_p != 200:
+                return 502, {"ok": False, "error": f"Failed to pause cleaning: {resp_p}"}
+
+            deadline = time.time() + 15.0
+            while time.time() < deadline:
+                time.sleep(0.6)
+                st_cur, r_cur = send_robot_command_sync(serial, {"ability": "state.show"}, timeout_s=3.0)
+                if st_cur == 200 and isinstance(r_cur, dict):
+                    cur_body = r_cur.get("body") or r_cur
+                    cur_cmds = cur_body.get("available_commands") or {}
+                    if cur_cmds.get("return_to_base"):
+                        st_b, resp_b = send_robot_command_sync(serial, {"ability": "navigation.return_to_base"}, timeout_s=10.0)
+                        if st_b == 200:
+                            return 200, {"ok": True, "message": "Returning to base", "docking": True, "docked": False}
+                        return 502, {"ok": False, "error": f"Failed to command robot to return to base: {resp_b}"}
+
+            st_b, resp_b = send_robot_command_sync(serial, {"ability": "navigation.return_to_base"}, timeout_s=8.0)
+            if st_b == 200:
+                return 200, {"ok": True, "message": "Returning to base", "docking": True, "docked": False}
+            return 400, {"ok": False, "error": "Robot was paused, but was not ready to return to base."}
+
+        st_b, resp_b = send_robot_command_sync(serial, {"ability": "navigation.return_to_base"}, timeout_s=8.0)
+        if st_b == 200:
+            return 200, {"ok": True, "message": "Returning to base", "docking": True, "docked": False}
+        return 400, {"ok": False, "error": "Robot cannot return to base in its current state."}
+
 def start_clean_here(serial: str, data: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     """Create a temporary polygon zone, clean it immediately, and auto-remove afterward."""
     if serial not in robot_connections:

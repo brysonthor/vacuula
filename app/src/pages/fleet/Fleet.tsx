@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import TimeAgo from 'react-timeago'
@@ -11,6 +12,7 @@ import {
     IoMapOutline,
     IoTerminalOutline,
 } from 'react-icons/io5'
+import { IoMdRefresh } from 'react-icons/io'
 import { FaBell, FaPlay } from 'react-icons/fa'
 import { TbChargingPile, TbHome } from 'react-icons/tb'
 import { MdError } from 'react-icons/md'
@@ -66,12 +68,17 @@ export default function Fleet() {
         }
     }
 
-    const handleQuickDock = (serial: string, info: QuickRobotEntry) => {
-        if (!info.connected) return
-        if (info.type === RobotType.NeatoGen3) {
-            GEN3_COMMANDS.sendToBase(serial)
-        } else {
-            GEN4_COMMANDS.sendToBase(serial)
+    const [dockingSerials, setDockingSerials] = useState<Record<string, boolean>>({})
+
+    const handleQuickDock = async (serial: string, info: QuickRobotEntry) => {
+        if (!info.connected || dockingSerials[serial]) return
+        setDockingSerials(prev => ({ ...prev, [serial]: true }))
+        try {
+            await Http.dockRobot(serial)
+        } catch (err) {
+            console.error('Failed to dock robot', err)
+        } finally {
+            setDockingSerials(prev => ({ ...prev, [serial]: false }))
         }
     }
 
@@ -246,12 +253,16 @@ export default function Fleet() {
                                     <button
                                         type="button"
                                         className={styles.quickActionBtn}
-                                        disabled={!info.connected || !!info.is_docked}
+                                        disabled={!info.connected || !!info.is_docked || dockingSerials[serial]}
                                         onClick={() => handleQuickDock(serial, info)}
                                         title={t('home.base', 'Dock')}
                                     >
-                                        <TbHome size={15} />
-                                        <span>{t('home.base', 'Base')}</span>
+                                        {dockingSerials[serial] ? (
+                                            <IoMdRefresh size={15} className={styles.spin} />
+                                        ) : (
+                                            <TbHome size={15} />
+                                        )}
+                                        <span>{dockingSerials[serial] ? t('home.docking', 'Docking...') : t('home.base', 'Base')}</span>
                                     </button>
                                     <button
                                         type="button"

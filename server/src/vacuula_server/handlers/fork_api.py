@@ -38,6 +38,7 @@ from vacuula_server.orchestrator import (
     activate_skip_next_run,
     cancel_gen3_zone_queue,
     cancel_skip_next_run,
+    dock_robot,
     get_gen3_zone_queue,
     send_robot_command_sync,
     start_clean_here,
@@ -279,6 +280,11 @@ def post_clean_here_handler(req: "RouterHandler", serial: str) -> None:
     if data is None:
         return
     status, resp = start_clean_here(serial, data)
+    req.send_response_data(resp, True, status=status)
+
+
+def post_robot_dock_handler(req: "RouterHandler", serial: str) -> None:
+    status, resp = dock_robot(serial)
     req.send_response_data(resp, True, status=status)
 
 
