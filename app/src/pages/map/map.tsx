@@ -118,6 +118,9 @@ export default function MapPage() {
                 if (wantCleanHere) {
                     setMode('clean-here')
                     setDrawTool('rectangle')
+                    setCurrentLinePoints([])
+                    setClosedAsPolygon(false)
+                    setCleanHereStatus(null)
                     setSearchParams({}, { replace: true })
                 }
             }
@@ -126,8 +129,11 @@ export default function MapPage() {
 
     const extraDraw = useCallback<ExtraDrawFn>(
         (ctx, canvas, currentZoom, currentOffset, mapSize) => {
-            const showBoundaries =
+            const rawBoundaries =
                 mode === 'boundary-edit' ? boundaries.filter(b => b.id !== activeBoundaryId) : boundaries
+            const showBoundaries = rawBoundaries.filter(
+                b => b.name !== '__vacuula_clean_here__' && !b.id.startsWith('clean-here-')
+            )
 
             drawZones(
                 ctx,
@@ -237,9 +243,21 @@ export default function MapPage() {
         if (!persistentMap) return
         skipNextPostRef.current = true
         if (robot.type === RobotType.NeatoGen4) {
-            Http.getBoundaries(robot.serial, persistentMap).then(res => setBoundaries(res.data ?? []))
+            Http.getBoundaries(robot.serial, persistentMap).then(res =>
+                setBoundaries(
+                    ((res.data ?? []) as (NoGoLine | Zone)[]).filter(
+                        b => b.name !== '__vacuula_clean_here__' && !b.id.startsWith('clean-here-')
+                    )
+                )
+            )
         } else {
-            fetchGen3MapBoundaries(robot.serial, persistentMap, robot.online).then(b => setBoundaries([...b]))
+            fetchGen3MapBoundaries(robot.serial, persistentMap, robot.online).then(b =>
+                setBoundaries(
+                    b.filter(
+                        item => item.name !== '__vacuula_clean_here__' && !item.id.startsWith('clean-here-')
+                    )
+                )
+            )
         }
     }, [persistentMap, robot.serial, robot.type, robot.online])
 
@@ -265,7 +283,10 @@ export default function MapPage() {
             return
         }
         if (robot.type === RobotType.NeatoGen4) {
-            Http.postBoundaries(robot.serial, persistentMap, boundaries).then(() => {
+            const cleanBoundaries = boundaries.filter(
+                b => b.name !== '__vacuula_clean_here__' && !b.id.startsWith('clean-here-')
+            )
+            Http.postBoundaries(robot.serial, persistentMap, cleanBoundaries).then(() => {
                 getMapBoundaries()
                 const map = persistentMaps?.find(p => p.id === persistentMap)
                 if (map && 'promoted' in map && map.promoted && robot.online) {
@@ -276,17 +297,19 @@ export default function MapPage() {
         }
 
         if (!robot.online) return
-        const updatedBoundaries = boundaries.map(boundary =>
-            boundary.type === 'polygon'
-                ? {
-                      ...boundary,
-                      relevancy: calcRelevancy(boundary.vertices),
-                  }
-                : boundary
-        )
+        const updatedBoundaries = boundaries
+            .filter(b => b.name !== '__vacuula_clean_here__' && !b.id.startsWith('clean-here-'))
+            .map(boundary =>
+                boundary.type === 'polygon'
+                    ? {
+                          ...boundary,
+                          relevancy: calcRelevancy(boundary.vertices),
+                      }
+                    : boundary
+            )
         GEN3_COMMANDS.setMapBoundaries(robot.serial, persistentMap, updatedBoundaries)
             .then(() => {
-                setCachedGen3Boundaries(robot.serial, persistentMap, boundaries)
+                setCachedGen3Boundaries(robot.serial, persistentMap, updatedBoundaries)
             })
             .catch(() => {
                 getMapBoundaries()
@@ -375,6 +398,10 @@ export default function MapPage() {
                     robot.type === RobotType.NeatoGen3 ? getGen3NavigationMode() : getGen4NavigationMode(),
                 nogo_enabled: true,
             })
+            setCurrentLinePoints([])
+            setClosedAsPolygon(false)
+            setCleanHereStatus(null)
+            setMode('boundaries')
             navigate(`/robot/${encodeURIComponent(robot.serial)}`)
         } catch (err: any) {
             setCleanHereStatus(err?.response?.data?.error || t('common.error', 'Failed to start Clean Here'))
@@ -421,6 +448,7 @@ export default function MapPage() {
         setDrawTool('rectangle')
         setCurrentLinePoints([])
         setClosedAsPolygon(false)
+        setCleanHereStatus(null)
         setMode('clean-here')
         setDrawerOpen(true)
     }

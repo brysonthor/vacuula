@@ -31,6 +31,7 @@ def setup_logging() -> None:
 
 
     log_file = get_log_file_path()
+    log_file.parent.mkdir(parents=True, exist_ok=True)
     handler = RotatingFileHandler(
         log_file,
         maxBytes=2 * 1024 * 1024,

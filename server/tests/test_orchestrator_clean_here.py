@@ -119,3 +119,60 @@ def test_cleanup_gen3_ephemeral_preserves_relevancy_and_removes_clean_here():
             assert cleaned_bounds[0]["name"] == "Kitchen"
             assert cleaned_bounds[0]["id"] == "zone-existing"
             assert cleaned_bounds[0]["relevancy"] == [0.2333, 0.1667]
+
+
+def test_on_robot_state_updated_gen3_docking_action_triggers_cleanup():
+    from vacuula_server.orchestrator import _on_robot_state_updated, _ephemeral_cleanups, _orch_lock
+    import time
+
+    serial = "OPS12345-aabbccddeeff"
+    with _orch_lock:
+        _ephemeral_cleanups[serial] = {
+            "gen": "gen3",
+            "map_id": "basement-map",
+            "saw_busy": True,
+            "started_at": time.monotonic() - 10.0,
+        }
+
+    with patch("vacuula_server.orchestrator._cleanup_gen3_ephemeral") as mock_cleanup, \
+         patch("time.sleep"):
+        # Robot docks: state 1 (idle), action 4 (docking), details.isDocked True
+        snapshot = {
+            "state": 1,
+            "action": 4,
+            "details": {"isDocked": True, "charge": 98},
+        }
+        _on_robot_state_updated(serial, snapshot)
+        time.sleep(0.05)  # Allow background thread to run
+
+        with _orch_lock:
+            assert serial not in _ephemeral_cleanups
+        mock_cleanup.assert_called_once_with(serial, "basement-map")
+
+
+def test_on_robot_state_updated_gen4_docked_triggers_cleanup():
+    from vacuula_server.orchestrator import _on_robot_state_updated, _ephemeral_cleanups, _orch_lock
+    import time
+
+    serial = "2126LB01A14101917"
+    with _orch_lock:
+        _ephemeral_cleanups[serial] = {
+            "gen": "gen4",
+            "map_id": "main-floor",
+            "saw_busy": True,
+            "started_at": time.monotonic() - 10.0,
+        }
+
+    with patch("vacuula_server.orchestrator.promote_gen4_floorplan") as mock_promote, \
+         patch("time.sleep"):
+        snapshot = {
+            "state": "idle",
+            "action": "docking",
+            "details": {"is_docked": True, "charge": 100},
+        }
+        _on_robot_state_updated(serial, snapshot)
+        time.sleep(0.05)
+
+        with _orch_lock:
+            assert serial not in _ephemeral_cleanups
+        mock_promote.assert_called_once_with(serial, "main-floor", preserve_schedules=True)

@@ -33,6 +33,14 @@ export interface Offset {
     y: number
 }
 
+export interface BasePose {
+    /** Dock centre, normalised to the map grid (0..1 of width / height). */
+    x: number
+    y: number
+    /** Dock heading in degrees (robot's base.dir). 0 = robot faces +X. */
+    dir: number
+}
+
 export interface TouchState {
     distance: number
     angle: number

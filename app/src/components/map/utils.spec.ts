@@ -4,6 +4,7 @@ import {
     isPointInPolygon,
     makeRectangleVertices,
     getWorldCoords,
+    extractBasePose,
 } from './utils'
 import type { Point } from './types'
 
@@ -76,6 +77,77 @@ describe('map utils', () => {
             const point = getWorldCoords(100, 200, { x: 0, y: 0 }, 1, { width: 1000, height: 1000 })
             expect(point[0]).toBeCloseTo(0.1)
             expect(point[1]).toBeCloseTo(0.2)
+        })
+    })
+
+    describe('extractBasePose', () => {
+        it('extracts base pose from Gen 4 Cartesian floorplan format', () => {
+            const gen4Plan = {
+                base: [2000, 3000, 45],
+                origin: [0, 0],
+                resolution: 40,
+                imgsize: [100, 100],
+            }
+            const result = extractBasePose(gen4Plan)
+            expect(result).not.toBeNull()
+            expect(result?.resolution).toBe(40)
+            expect(result?.pose.x).toBeCloseTo(2000 / 40 / 100) // 0.5
+            expect(result?.pose.y).toBeCloseTo(1 - (3000 / 40 / 100)) // 0.25
+            expect(result?.pose.dir).toBe(-45)
+        })
+
+        it('extracts base pose from Gen 3 floormap dock format', () => {
+            const gen3Map = {
+                dock: {
+                    normalised_x: 0.42,
+                    normalised_y: 0.68,
+                },
+            }
+            const result = extractBasePose(gen3Map)
+            expect(result).toEqual({
+                pose: {
+                    x: 0.42,
+                    y: 0.68,
+                    dir: 0,
+                },
+                resolution: 40,
+            })
+        })
+
+        it('extracts base pose from Gen 3 PersistentMap array format [x, y]', () => {
+            const gen3PersistentMap = {
+                base: [0.35, 0.75],
+            }
+            const result = extractBasePose(gen3PersistentMap)
+            expect(result).toEqual({
+                pose: {
+                    x: 0.35,
+                    y: 0.75,
+                    dir: 0,
+                },
+                resolution: 40,
+            })
+        })
+
+        it('extracts base pose from Gen 3 PersistentMap object format {x, y}', () => {
+            const gen3ObjMap = {
+                base: { x: 0.2, y: 0.8 },
+            }
+            const result = extractBasePose(gen3ObjMap)
+            expect(result).toEqual({
+                pose: {
+                    x: 0.2,
+                    y: 0.8,
+                    dir: 0,
+                },
+                resolution: 40,
+            })
+        })
+
+        it('returns null for NO_BASE or invalid values', () => {
+            expect(extractBasePose({ base: [2147483647, 2147483647, 0] })).toBeNull()
+            expect(extractBasePose(null)).toBeNull()
+            expect(extractBasePose({})).toBeNull()
         })
     })
 })

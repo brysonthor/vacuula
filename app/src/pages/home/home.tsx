@@ -39,6 +39,7 @@ import { useGetPromotedFloorplan } from '../../utils/floormaps'
 import { getGen3CleaningMode, getGen3NavigationMode, getGen4CleaningMode, getGen4NavigationMode } from '../../utils/modes'
 import { BasicState, getRobotStateKey, resolveRobotState } from '../../utils/state'
 import type { NoGoLine, Zone } from '../../components/map/types'
+import { extractBasePose } from '../../components/map/utils'
 import InteractiveFloorplan from './InteractiveFloorplan'
 import RingProgress from './RingProgress'
 import styles from './home.module.scss'
@@ -173,11 +174,21 @@ export default function Home() {
         }
         if (robot.type === RobotType.NeatoGen4) {
             Http.getBoundaries(robot.serial, activeMapId)
-                .then(res => setBoundaries(res.data ?? []))
+                .then(res =>
+                    setBoundaries(
+                        ((res.data ?? []) as (NoGoLine | Zone)[]).filter(
+                            b => b.name !== '__vacuula_clean_here__' && !b.id.startsWith('clean-here-')
+                        )
+                    )
+                )
                 .catch(() => setBoundaries([]))
         } else {
             fetchGen3MapBoundaries(robot.serial, activeMapId, robot.online).then(list => {
-                setBoundaries(list)
+                setBoundaries(
+                    list.filter(
+                        b => b.name !== '__vacuula_clean_here__' && !b.id.startsWith('clean-here-')
+                    )
+                )
             })
         }
     }, [robot.serial, robot.type, robot.online, activeMapId])
@@ -192,6 +203,8 @@ export default function Home() {
                 (b): b is Zone =>
                     b.type === 'polygon' &&
                     b.enabled !== false &&
+                    b.name !== '__vacuula_clean_here__' &&
+                    !b.id.startsWith('clean-here-') &&
                     (b.function === 'cleaning' || b.function === undefined)
             ),
         [boundaries]
@@ -425,22 +438,41 @@ export default function Home() {
     const quickBoostActive =
         robot.type === RobotType.NeatoGen4 && !!robot.details?.is_quickboost
 
+    const activeGen3Map = useMemo(
+        () => (robot.type === RobotType.NeatoGen3 ? enabledGen3Maps.find(m => m.id === activeMapId) : undefined),
+        [robot.type, enabledGen3Maps, activeMapId]
+    )
+
     const basePose = useMemo(() => {
-        if (robot.type === RobotType.NeatoGen4 && promotedFloorplan?.base && promotedFloorplan.imgsize) {
-            const [bx, by, bdir] = promotedFloorplan.base
-            const [ox, oy] = promotedFloorplan.origin
-            const resM = (promotedFloorplan.resolution || 40) / 1000
-            const [w, h] = promotedFloorplan.imgsize
-            if (w > 0 && h > 0 && resM > 0) {
-                return {
-                    x: (bx - ox) / (w * resM),
-                    y: 1 - (by - oy) / (h * resM),
-                    dir: -bdir,
-                }
-            }
+        if (robot.type === RobotType.NeatoGen4 && promotedFloorplan) {
+            return extractBasePose(promotedFloorplan)?.pose ?? null
+        }
+        if (robot.type === RobotType.NeatoGen3 && activeGen3Map) {
+            return extractBasePose(activeGen3Map)?.pose ?? null
         }
         return null
-    }, [robot.type, promotedFloorplan])
+    }, [robot.type, promotedFloorplan, activeGen3Map])
+
+    const activeCleaningZoneId = useMemo(() => {
+        if (!isBusy) return undefined
+        if (activeQueue && (activeQueue.status === 'running' || activeQueue.status === 'in_progress')) {
+            return activeQueue.zones[activeQueue.current_index]?.id
+        }
+        if (robot.type === RobotType.NeatoGen4 && gen4Session?.runs) {
+            const runningRun = gen4Session.runs.find(r => r.state === Neato.Gen4.RunStates.IN_PROGRESS)
+            if (runningRun?.track_uuid) return runningRun.track_uuid
+        }
+        if (selectedZones.length === 1 && isBusy) {
+            return selectedZones[0]
+        }
+        return undefined
+    }, [isBusy, activeQueue, robot.type, gen4Session, selectedZones])
+
+    const activeCleaningZoneName = useMemo(() => {
+        if (!activeCleaningZoneId) return undefined
+        const zoneObj = cleaningZones.find(z => z.id === activeCleaningZoneId)
+        return zoneObj?.name || activeCleaningZoneId
+    }, [activeCleaningZoneId, cleaningZones])
 
     const renderCleaningSetup = () => (
         <div className={styles.setupCardBody}>
@@ -1084,11 +1116,31 @@ export default function Home() {
                                         : enabledGen3Maps.find(m => m.id === activeMapId)?.name ??
                                           t('map.floorplan', 'Active Floorplan')}
                                 </h2>
-                                {activeMapId && cleaningZones.length > 0 && (
-                                    <p className={styles.cardSubtitle}>
-                                        {t('home.clickRoomHint', 'Click rooms on the map to build your cleaning order')}
-                                    </p>
-                                )}
+                                <div className={styles.floorplanStatusRow}>
+                                    {robot.online && currentlyDocked && (
+                                        <span className={styles.dockedStatusPill} title={t('home.robotDockedTooltip', 'Robot is sitting on the charging base')}>
+                                            <span className={styles.dockedDot} />
+                                            {t('home.robotDockedAtBase', 'Robot at Base')}
+                                        </span>
+                                    )}
+                                    {robot.online && isBusy && activeCleaningZoneName && (
+                                        <span className={styles.activeCleaningPill}>
+                                            <span className={styles.pulseDot} />
+                                            {t('home.cleaningZone', 'In: {{zone}}', { zone: activeCleaningZoneName })}
+                                        </span>
+                                    )}
+                                    {robot.online && isBusy && !activeCleaningZoneName && (
+                                        <span className={styles.activeCleaningPill}>
+                                            <span className={styles.pulseDot} />
+                                            {t('home.activeHouseCleaning', 'Floor Cleaning Active')}
+                                        </span>
+                                    )}
+                                    {activeMapId && cleaningZones.length > 0 && !isBusy && (
+                                        <p className={styles.cardSubtitle}>
+                                            {t('home.clickRoomHint', 'Click rooms on the map to build your cleaning order')}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                             <div className={styles.cardHeaderActions}>
                                 {activeMapId && (
@@ -1121,6 +1173,11 @@ export default function Home() {
                                 onToggleZone={toggleZone}
                                 basePose={basePose}
                                 resolution={promotedFloorplan?.resolution ?? 40}
+                                isDocked={currentlyDocked}
+                                isCharging={isCharging(robot)}
+                                charge={chargePct}
+                                isOnline={robot.online}
+                                activeZoneId={activeCleaningZoneId}
                             />
                         ) : (
                             <div className={styles.noFloorplanBox}>
@@ -1151,6 +1208,12 @@ export default function Home() {
                             </div>
                             {robot.type === RobotType.NeatoGen4 && gen4Session ? (
                                 <div className={styles.telemetryGrid}>
+                                    {activeCleaningZoneName && (
+                                        <div>
+                                            <span className={styles.telLabel}>{t('home.currentArea', 'Current Area')}</span>
+                                            <span className={styles.telVal}>{activeCleaningZoneName}</span>
+                                        </div>
+                                    )}
                                     <div>
                                         <span className={styles.telLabel}>{t('runs.startedBy', 'Trigger')}</span>
                                         <span className={styles.telVal}>{gen4Session.started_by}</span>
@@ -1169,6 +1232,12 @@ export default function Home() {
                                 </div>
                             ) : robot.type === RobotType.NeatoGen3 && robot.cleaning ? (
                                 <div className={styles.telemetryGrid}>
+                                    {activeCleaningZoneName && (
+                                        <div>
+                                            <span className={styles.telLabel}>{t('home.currentArea', 'Current Area')}</span>
+                                            <span className={styles.telVal}>{activeCleaningZoneName}</span>
+                                        </div>
+                                    )}
                                     <div>
                                         <span className={styles.telLabel}>{t('home.btnExplain.cleaning', 'Suction')}</span>
                                         <span className={styles.telVal}>

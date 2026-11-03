@@ -9,29 +9,12 @@ import { useTranslation } from 'react-i18next'
 import { useCallback, useEffect, useState } from 'react'
 import { drawBase, onDockImageReady } from './drawingFunctions'
 import type { ExtraDrawFn } from './useMap'
-import type { VacuulaMapData } from './types'
+import { extractBasePose } from './utils'
+import { isCharging, isDocked } from '../topbar/robotInfo'
 
 interface MapProps {
     mapId: string
     runId?: string
-}
-
-function basePoseFromMapData(data: VacuulaMapData) {
-    const base = data.base
-    const md = data.metadata
-    const img = data.img_size
-    if (!Array.isArray(base) || !md || !Array.isArray(img)) return
-    const NO_BASE = 2147483647
-    if (base[0] === NO_BASE || base[1] === NO_BASE) return
-    const resolution = md.resolution || 40
-    return {
-        pose: {
-            x: ((base[0] - md.origin_x) / resolution) / img[0],
-            y: 1 - ((base[1] - md.origin_y) / resolution) / img[1],
-            dir: base[2] ?? 0,
-        },
-        resolution,
-    }
 }
 
 export default function Map({ mapId, runId }: MapProps) {
@@ -44,9 +27,16 @@ export default function Map({ mapId, runId }: MapProps) {
 
     const extraDraw = useCallback<ExtraDrawFn>((ctx, _canvas, zoom, offset, mapSize) => {
         if (!persistantMapData) return
-        const b = basePoseFromMapData(persistantMapData)
-        if (b) drawBase(ctx, b.pose, zoom, offset, mapSize, b.resolution)
-    }, [persistantMapData, dockReady])
+        const b = extractBasePose(persistantMapData)
+        if (b) {
+            drawBase(ctx, b.pose, zoom, offset, mapSize, b.resolution, {
+                isDocked: isDocked(robot),
+                isCharging: isCharging(robot),
+                charge: robot.details?.charge,
+                isOnline: robot.online,
+            })
+        }
+    }, [persistantMapData, dockReady, robot])
 
     const { canvasRef, isDragging, canvasHandlers } = useMap({
         mapId,

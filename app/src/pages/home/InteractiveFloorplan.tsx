@@ -4,7 +4,8 @@ import { MdFilterCenterFocus } from 'react-icons/md'
 import { drawBase, drawNoGoLines, drawZones, onDockImageReady, type BasePose } from '../../components/map/drawingFunctions'
 import type { NoGoLine, Zone } from '../../components/map/types'
 import { useMap, type ExtraDrawFn } from '../../components/map/useMap'
-import { getCanvasPointerWorldCoords, isPointInPolygon } from '../../components/map/utils'
+import { extractBasePose, getCanvasPointerWorldCoords, isPointInPolygon } from '../../components/map/utils'
+import { usePersistentMap } from '../../loaders/resources'
 import styles from './home.module.scss'
 
 interface InteractiveFloorplanProps {
@@ -15,6 +16,11 @@ interface InteractiveFloorplanProps {
     basePose?: BasePose | null
     resolution?: number
     interactive?: boolean
+    isDocked?: boolean
+    isCharging?: boolean
+    charge?: number
+    isOnline?: boolean
+    activeZoneId?: string
 }
 
 export default function InteractiveFloorplan({
@@ -25,14 +31,28 @@ export default function InteractiveFloorplan({
     basePose,
     resolution = 40,
     interactive = true,
+    isDocked,
+    isCharging,
+    charge,
+    isOnline,
+    activeZoneId,
 }: InteractiveFloorplanProps) {
     const [dockTick, setDockTick] = useState(0)
     const [hoveredZoneId, setHoveredZoneId] = useState<string | undefined>()
     const lastTouchPosRef = useRef<{ x: number; y: number } | null>(null)
+    const { data: persistantMapData } = usePersistentMap(mapId)
 
     useEffect(() => {
         onDockImageReady(() => setDockTick(n => n + 1))
     }, [])
+
+    const resolvedBase = useMemo(() => {
+        if (basePose) return { pose: basePose, resolution }
+        if (persistantMapData) {
+            return extractBasePose(persistantMapData)
+        }
+        return null
+    }, [basePose, persistantMapData, resolution])
 
     const selectedOrderMap = useMemo(() => {
         const out: Record<string, number> = {}
@@ -74,18 +94,47 @@ export default function InteractiveFloorplan({
                 showLabels: true,
                 selectedOrderMap,
                 highlightedId: hoveredZoneId,
+                activeZoneId,
             })
-            if (basePose) {
-                drawBase(ctx, basePose, z, off, mSize, resolution)
+            if (resolvedBase) {
+                drawBase(ctx, resolvedBase.pose, z, off, mSize, resolvedBase.resolution, {
+                    isDocked,
+                    isCharging,
+                    charge,
+                    isOnline,
+                })
             }
         },
-        [nogoLines, nogoPolys, cleaningZones, selectedOrderMap, hoveredZoneId, basePose, resolution]
+        [
+            nogoLines,
+            nogoPolys,
+            cleaningZones,
+            selectedOrderMap,
+            hoveredZoneId,
+            resolvedBase,
+            activeZoneId,
+            isDocked,
+            isCharging,
+            charge,
+            isOnline,
+        ]
     )
 
     const { canvasRef, mapSize, zoom, offset, isDragging, hasMoved, canvasHandlers, resetView, zoomBy } = useMap({
         mapId,
         extraDraw,
-        redrawKey: [boundaries, selectedOrderMap, hoveredZoneId, dockTick, basePose],
+        redrawKey: [
+            boundaries,
+            selectedOrderMap,
+            hoveredZoneId,
+            dockTick,
+            resolvedBase,
+            activeZoneId,
+            isDocked,
+            isCharging,
+            charge,
+            isOnline,
+        ],
         backgroundToken: '--map-editor-bg',
     })
 

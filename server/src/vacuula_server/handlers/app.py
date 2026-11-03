@@ -22,6 +22,8 @@ from vacuula_server.generation import Generation, get_robot_by_serial
 import json
 import queue
 import os
+import copy
+import threading
 from vacuula_server.gen4.handlers import robot_send_request
 from vacuula_server.server_tz import server_timezone, utc_offset_minutes
 
@@ -286,7 +288,34 @@ def post_robot_command(req: RouterHandler, serial: str) -> None:
     slot.event.wait(wait_s)
     pending_requests.pop(key, None)
     if slot.event.is_set():
-        _send_quietly(lambda: req.send_response_data(slot.content, True, slot.status))
+        content = slot.content
+        if (
+            conn.gen == Generation.GEN3
+            and data.get("cmd") == "getMapBoundaries"
+            and isinstance(content, dict)
+        ):
+            b_list = ((content.get("data") or {}).get("boundaries")) or []
+            if isinstance(b_list, list):
+                had_clean_here = any(
+                    isinstance(b, dict) and b.get("name") == "__vacuula_clean_here__"
+                    for b in b_list
+                )
+                if had_clean_here:
+                    sanitized_list = [
+                        b for b in b_list
+                        if not (isinstance(b, dict) and b.get("name") == "__vacuula_clean_here__")
+                    ]
+                    content = copy.deepcopy(content)
+                    content["data"]["boundaries"] = sanitized_list
+                    map_id = (data.get("params") or {}).get("mapId")
+                    from vacuula_server.orchestrator import is_clean_here_active, _cleanup_gen3_ephemeral
+                    if map_id and not is_clean_here_active(serial):
+                        threading.Thread(
+                            target=_cleanup_gen3_ephemeral,
+                            args=(serial, map_id),
+                            daemon=True,
+                        ).start()
+        _send_quietly(lambda: req.send_response_data(content, True, slot.status))
     elif is_state_query:
         logger.info(
             "Robot %s state query timed out after %.1fs; returning cached/fallback state",

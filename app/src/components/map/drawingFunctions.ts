@@ -1,5 +1,5 @@
 import { COLORS, DRAWING, readMapToken } from './constants'
-import type { Zone, NoGoLine, Point } from './types'
+import type { Zone, NoGoLine, Point, BasePose } from './types'
 import { normalizeHex, withAlpha } from './color'
 import { calcRelevancy } from './utils'
 import dockUrl from '../../assets/dock.svg'
@@ -167,6 +167,8 @@ export interface DrawZonesOptions {
     /** Map of zone.id -> 1-based sequence index when ordered cleaning is active */
     selectedOrderMap?: Record<string, number>
     highlightedId?: string
+    /** Currently active cleaning zone for live room tracking */
+    activeZoneId?: string
 }
 
 function drawRoundedRect(
@@ -201,16 +203,25 @@ function drawZone(
     if (zone.vertices.length < 3) return
 
     const orderNum = options?.selectedOrderMap?.[zone.id]
-    const isHighlighted = options?.highlightedId === zone.id || orderNum !== undefined
-    const outline = normalizeHex(zone.color) ?? COLORS.LINE_COLOR
-    const fillAlpha = isHighlighted ? Math.min(0.42, DRAWING.ZONE_FILL_ALPHA * 1.9) : DRAWING.ZONE_FILL_ALPHA
+    const isActiveZone = options?.activeZoneId === zone.id
+    const isHighlighted = options?.highlightedId === zone.id || orderNum !== undefined || isActiveZone
+    const outline = isActiveZone ? '#3ddc97' : (normalizeHex(zone.color) ?? COLORS.LINE_COLOR)
+    const fillAlpha = isActiveZone
+        ? 0.38
+        : isHighlighted
+            ? Math.min(0.42, DRAWING.ZONE_FILL_ALPHA * 1.9)
+            : DRAWING.ZONE_FILL_ALPHA
 
     ctx.save()
-    ctx.fillStyle = withAlpha(zone.color, fillAlpha, COLORS.POLYGON_FILL)
+    ctx.fillStyle = withAlpha(isActiveZone ? '#3ddc97' : zone.color, fillAlpha, COLORS.POLYGON_FILL)
     ctx.strokeStyle = outline
     ctx.lineWidth = Math.max(
-        isHighlighted ? DRAWING.MIN_LINE_WIDTH + 1.2 : DRAWING.MIN_LINE_WIDTH,
-        zoom * DRAWING.POLYGON_LINE_WIDTH_SCALE * (isHighlighted ? 1.35 : 1)
+        isActiveZone
+            ? DRAWING.MIN_LINE_WIDTH + 2.2
+            : isHighlighted
+                ? DRAWING.MIN_LINE_WIDTH + 1.2
+                : DRAWING.MIN_LINE_WIDTH,
+        zoom * DRAWING.POLYGON_LINE_WIDTH_SCALE * (isActiveZone ? 1.6 : isHighlighted ? 1.35 : 1)
     )
 
     if (zone.function === 'nogo') {
@@ -240,7 +251,9 @@ function drawZone(
         const cx = offset.x + cxNorm * sx
         const cy = offset.y + cyNorm * sy
 
-        const text = orderNum !== undefined ? `#${orderNum} ${rawName}` : rawName
+        const text = isActiveZone
+            ? (orderNum !== undefined ? `#${orderNum} ⚡ ${rawName}` : `⚡ ${rawName}`)
+            : (orderNum !== undefined ? `#${orderNum} ${rawName}` : rawName)
         ctx.save()
         ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
         const metrics = ctx.measureText(text)
@@ -249,13 +262,21 @@ function drawZone(
         const pillW = metrics.width + padX * 2
 
         drawRoundedRect(ctx, cx - pillW / 2, cy - pillH / 2, pillW, pillH, 6)
-        ctx.fillStyle = orderNum !== undefined ? outline : 'rgba(13, 17, 23, 0.82)'
+        ctx.fillStyle = isActiveZone
+            ? '#064e3b'
+            : orderNum !== undefined
+                ? outline
+                : 'rgba(13, 17, 23, 0.82)'
         ctx.fill()
         ctx.strokeStyle = outline
-        ctx.lineWidth = 1.25
+        ctx.lineWidth = isActiveZone ? 1.8 : 1.25
         ctx.stroke()
 
-        ctx.fillStyle = orderNum !== undefined ? '#08130e' : '#f0f4f8'
+        ctx.fillStyle = isActiveZone
+            ? '#ecfdf5'
+            : orderNum !== undefined
+                ? '#08130e'
+                : '#f0f4f8'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillText(text, cx, cy + 0.5)
@@ -446,12 +467,86 @@ export function onDockImageReady(fn: () => void) {
     getDockImage()
 }
 
-export interface BasePose {
-    /** Dock centre, normalised to the map grid (0..1 of width / height). */
-    x: number
-    y: number
-    /** Dock heading in degrees (robot's base.dir). 0 = robot faces +X. */
-    dir: number
+export type { BasePose } from './types'
+
+export interface DrawBaseOptions {
+    isDocked?: boolean
+    isCharging?: boolean
+    charge?: number
+    isOnline?: boolean
+}
+
+function drawDockedNeato(ctx: CanvasRenderingContext2D, rPx: number, isCharging: boolean) {
+    const r = Math.max(13, rPx)
+    ctx.save()
+
+    // Soft drop shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)'
+    ctx.shadowBlur = Math.max(4, r * 0.35)
+    ctx.shadowOffsetY = Math.max(2, r * 0.15)
+
+    const w = r * 1.85
+    const hw = w / 2
+    const frontY = r * 1.6
+    const cornerR = r * 0.28
+    const rearY = -r * 0.1
+
+    // D-shape chassis
+    ctx.beginPath()
+    ctx.moveTo(-hw + cornerR, frontY)
+    ctx.lineTo(hw - cornerR, frontY)
+    ctx.quadraticCurveTo(hw, frontY, hw, frontY - cornerR)
+    ctx.lineTo(hw, rearY)
+    ctx.bezierCurveTo(hw, -r * 0.95, -hw, -r * 0.95, -hw, rearY)
+    ctx.lineTo(-hw, frontY - cornerR)
+    ctx.quadraticCurveTo(-hw, frontY, -hw + cornerR, frontY)
+    ctx.closePath()
+
+    ctx.fillStyle = '#1e242b'
+    ctx.fill()
+
+    // Reset shadow for crisp inner lines
+    ctx.shadowColor = 'transparent'
+    ctx.shadowBlur = 0
+    ctx.shadowOffsetY = 0
+
+    ctx.strokeStyle = '#475569'
+    ctx.lineWidth = Math.max(1.2, r * 0.08)
+    ctx.stroke()
+
+    // Bumper split line
+    ctx.strokeStyle = '#334155'
+    ctx.lineWidth = Math.max(1, r * 0.05)
+    ctx.beginPath()
+    ctx.moveTo(-hw + cornerR * 0.5, frontY - cornerR * 0.8)
+    ctx.lineTo(hw - cornerR * 0.5, frontY - cornerR * 0.8)
+    ctx.stroke()
+
+    // Circular LiDAR Turret (iconic Neato feature)
+    const turretR = r * 0.36
+    const turretY = r * 0.45
+    ctx.beginPath()
+    ctx.arc(0, turretY, turretR, 0, Math.PI * 2)
+    ctx.fillStyle = '#0f172a'
+    ctx.fill()
+    ctx.strokeStyle = '#38bdf8'
+    ctx.lineWidth = Math.max(1.2, r * 0.07)
+    ctx.stroke()
+
+    // Turret inner laser scanner lens
+    ctx.beginPath()
+    ctx.arc(0, turretY, turretR * 0.42, 0, Math.PI * 2)
+    ctx.fillStyle = isCharging ? '#3ddc97' : '#0284c7'
+    ctx.fill()
+
+    // Status LED dot
+    const ledY = frontY - cornerR * 1.5
+    ctx.beginPath()
+    ctx.arc(0, ledY, Math.max(1.5, r * 0.08), 0, Math.PI * 2)
+    ctx.fillStyle = isCharging ? '#3ddc97' : '#22c55e'
+    ctx.fill()
+
+    ctx.restore()
 }
 
 export function drawBase(
@@ -461,6 +556,7 @@ export function drawBase(
     offset: { x: number; y: number },
     mapSize: { height: number; width: number },
     resolution: number,
+    options?: DrawBaseOptions,
 ) {
     const img = getDockImage()
     if (!dockReady) return
@@ -473,7 +569,40 @@ export function drawBase(
 
     ctx.save()
     ctx.translate(cx, cy)
-    ctx.rotate(base.dir * Math.PI / 180)
+    ctx.rotate((base.dir * Math.PI) / 180)
     ctx.drawImage(img, DOCK_VIEWBOX.x * s, DOCK_VIEWBOX.y * s, DOCK_VIEWBOX.w * s, DOCK_VIEWBOX.h * s)
+
+    const isDocked = options?.isDocked ?? false
+    if (isDocked) {
+        drawDockedNeato(ctx, rPx, !!options?.isCharging)
+    }
     ctx.restore()
+
+    if (zoom >= 0.45) {
+        ctx.save()
+        ctx.font = '600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif'
+        const chargeText = options?.charge !== undefined ? `${options.charge}%` : ''
+        const badgeText = isDocked
+            ? (chargeText ? `⚡ Docked • ${chargeText}` : '⚡ Docked at Base')
+            : 'Base'
+        const metrics = ctx.measureText(badgeText)
+        const padX = 7
+        const pillH = 20
+        const pillW = metrics.width + padX * 2
+        const badgeY = cy + Math.max(18, rPx * 1.35) + 6
+        const badgeX = cx
+
+        drawRoundedRect(ctx, badgeX - pillW / 2, badgeY - pillH / 2, pillW, pillH, 5)
+        ctx.fillStyle = isDocked ? 'rgba(15, 23, 42, 0.92)' : 'rgba(24, 28, 31, 0.85)'
+        ctx.fill()
+        ctx.strokeStyle = isDocked ? '#3ddc97' : '#475569'
+        ctx.lineWidth = 1.2
+        ctx.stroke()
+
+        ctx.fillStyle = isDocked ? '#3ddc97' : '#94a3b8'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(badgeText, badgeX, badgeY + 0.5)
+        ctx.restore()
+    }
 }

@@ -1,5 +1,5 @@
 import type { Neato } from '../../types'
-import type { NoGoLine, Point, Zone } from './types'
+import type { BasePose, NoGoLine, Point, Zone } from './types'
 import { fetchGen3MapBoundaries } from '../../loaders/gen3Boundaries'
 
 // RLE Decode helper
@@ -211,4 +211,88 @@ export async function getAllGen3MapsWithZones(
             }
         }),
     )
+}
+
+/**
+ * Resolves the dock / base pose and resolution across Gen 3 and Gen 4 map structures.
+ * Supports:
+ * - Gen 4: Cartesian [bx, by, bdir] with map metadata/origin and dimensions.
+ * - Gen 3: Embed dock object { normalised_x, normalised_y } in floormap.json.
+ * - Gen 3: PersistentMap.base array [x, y] or object { x, y } (normalised 0..1).
+ */
+export function extractBasePose(
+    mapData?: any,
+    fallbackMap?: any
+): { pose: BasePose; resolution: number } | null {
+    const src = mapData ?? fallbackMap
+    if (!src) return null
+
+    // 1. Gen 4: Cartesian coordinates [bx, by, bdir] with origin and imgsize
+    const base = src.base ?? fallbackMap?.base
+    const NO_BASE = 2147483647
+    if (Array.isArray(base) && base.length >= 3 && base[0] !== NO_BASE && base[1] !== NO_BASE) {
+        const origin = src.metadata
+            ? [src.metadata.origin_x, src.metadata.origin_y]
+            : (src.origin ?? fallbackMap?.origin)
+        const resolution = src.metadata?.resolution ?? src.resolution ?? fallbackMap?.resolution ?? 40
+        const imgsize = src.img_size ?? src.imgsize ?? fallbackMap?.img_size ?? fallbackMap?.imgsize
+        if (origin && imgsize && imgsize[0] > 0 && imgsize[1] > 0 && resolution > 0) {
+            const [bx, by, bdir] = base
+            const [ox, oy] = origin
+            const normX = (bx - ox) / resolution / imgsize[0]
+            const normY = 1 - (by - oy) / resolution / imgsize[1]
+            return {
+                pose: {
+                    x: Math.max(0, Math.min(1, normX)),
+                    y: Math.max(0, Math.min(1, normY)),
+                    dir: -(bdir ?? 0),
+                },
+                resolution,
+            }
+        }
+    }
+
+    // 2. Gen 3: dock info embedded in floormap JSON
+    const dock = src.dock ?? fallbackMap?.dock
+    if (dock && typeof dock.normalised_x === 'number' && typeof dock.normalised_y === 'number') {
+        return {
+            pose: {
+                x: Math.max(0, Math.min(1, dock.normalised_x)),
+                y: Math.max(0, Math.min(1, dock.normalised_y)),
+                dir: 0,
+            },
+            resolution: src.metadata?.resolution ?? 40,
+        }
+    }
+
+    // 3. Gen 3: base stored as [x, y] in PersistentMap (normalized 0..1)
+    if (Array.isArray(base) && base.length >= 2 && typeof base[0] === 'number' && typeof base[1] === 'number') {
+        const [x, y] = base
+        if (x !== NO_BASE && y !== NO_BASE && x >= 0 && x <= 1 && y >= 0 && y <= 1) {
+            return {
+                pose: {
+                    x,
+                    y,
+                    dir: typeof base[2] === 'number' ? base[2] : 0,
+                },
+                resolution: src.metadata?.resolution ?? 40,
+            }
+        }
+    }
+
+    // 4. Gen 3: base stored as { x, y }
+    if (base && typeof base === 'object' && typeof base.x === 'number' && typeof base.y === 'number') {
+        if (base.x >= 0 && base.x <= 1 && base.y >= 0 && base.y <= 1) {
+            return {
+                pose: {
+                    x: base.x,
+                    y: base.y,
+                    dir: typeof base.dir === 'number' ? base.dir : 0,
+                },
+                resolution: src.metadata?.resolution ?? 40,
+            }
+        }
+    }
+
+    return null
 }

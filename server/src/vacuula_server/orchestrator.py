@@ -810,15 +810,12 @@ def start_clean_here(serial: str, data: dict[str, Any]) -> tuple[int, dict[str, 
     return 200, {"started": True, "boundary_id": temp_id}
 
 
+def is_clean_here_active(serial: str) -> bool:
+    with _orch_lock:
+        return serial in _ephemeral_cleanups
+
+
 def _cleanup_gen3_ephemeral(serial: str, map_id: str) -> None:
-    st, resp = send_robot_command_sync(
-        serial,
-        {"cmd": "getMapBoundaries", "params": {"mapId": map_id}},
-        timeout_s=15.0,
-    )
-    if st != 200 or not isinstance(resp, dict):
-        return
-    boundaries = (resp.get("data") or {}).get("boundaries") or []
     def _calc_relevancy(v_list: list[list[float]]) -> list[float]:
         if not v_list:
             return [0.0, 0.0]
@@ -826,30 +823,55 @@ def _cleanup_gen3_ephemeral(serial: str, map_id: str) -> None:
         cy = sum(p[1] for p in v_list) / len(v_list)
         return [round(cx, 4), round(cy, 4)]
 
-    filtered = []
-    for b in boundaries:
-        if isinstance(b, dict) and b.get("name") != "__vacuula_clean_here__":
-            b_type = b.get("type", "polygon")
-            b_verts = b.get("vertices", [])
-            item: dict[str, Any] = {
-                "id": b.get("id") or str(uuid.uuid4()),
-                "type": b_type,
-                "vertices": b_verts,
-                "name": b.get("name", ""),
-                "color": b.get("color", "#00E5A3"),
-                "enabled": bool(b.get("enabled", True)),
-            }
-            if b_type == "polygon":
-                item["relevancy"] = b.get("relevancy") or _calc_relevancy(b_verts)
-            filtered.append(item)
-
-    if len(filtered) != len(boundaries):
-        send_robot_command_sync(
+    for attempt in range(3):
+        st, resp = send_robot_command_sync(
             serial,
-            {"cmd": "setMapBoundaries", "params": {"mapId": map_id, "boundaries": filtered}},
+            {"cmd": "getMapBoundaries", "params": {"mapId": map_id}},
             timeout_s=15.0,
         )
-        logger.info("Removed temporary Clean Here boundary on Gen 3 robot %s", serial)
+        if st != 200 or not isinstance(resp, dict):
+            time.sleep(2.0)
+            continue
+        boundaries = (resp.get("data") or {}).get("boundaries") or []
+
+        filtered = []
+        for b in boundaries:
+            if isinstance(b, dict) and b.get("name") != "__vacuula_clean_here__":
+                b_type = b.get("type", "polygon")
+                b_verts = b.get("vertices", [])
+                item: dict[str, Any] = {
+                    "id": b.get("id") or str(uuid.uuid4()),
+                    "type": b_type,
+                    "vertices": b_verts,
+                    "name": b.get("name", ""),
+                    "color": b.get("color", "#00E5A3"),
+                    "enabled": bool(b.get("enabled", True)),
+                }
+                if b_type == "polygon":
+                    item["relevancy"] = b.get("relevancy") or _calc_relevancy(b_verts)
+                filtered.append(item)
+
+        if len(filtered) != len(boundaries):
+            st_set, resp_set = send_robot_command_sync(
+                serial,
+                {"cmd": "setMapBoundaries", "params": {"mapId": map_id, "boundaries": filtered}},
+                timeout_s=15.0,
+            )
+            if st_set == 200 and isinstance(resp_set, dict) and resp_set.get("result") == "ok":
+                logger.info("Removed temporary Clean Here boundary on Gen 3 robot %s", serial)
+                return
+            else:
+                logger.warning(
+                    "Attempt %d to remove temporary Clean Here boundary on %s returned st=%s resp=%s",
+                    attempt + 1,
+                    serial,
+                    st_set,
+                    resp_set,
+                )
+                time.sleep(2.0)
+        else:
+            # Boundary was already removed or not present on robot
+            return
 
 
 # ---------------------------------------------------------------------------
@@ -872,8 +894,6 @@ def _on_robot_state_updated(serial: str, snapshot: dict[str, Any]) -> None:
                 if raw_state == 4 or snapshot.get("error"):
                     _gen3_queues.pop(serial, None)
                     cancelled_or_done = True
-                elif raw_state == 2 or raw_action in (1, 4, 11):
-                    q["saw_busy"] = True
                 elif (
                     raw_state == 1
                     and details.get("isDocked")
@@ -887,6 +907,8 @@ def _on_robot_state_updated(serial: str, snapshot: dict[str, Any]) -> None:
                     else:
                         _gen3_queues.pop(serial, None)
                         cancelled_or_done = True
+                elif raw_state == 2 or raw_action in (1, 2, 3, 4, 11):
+                    q["saw_busy"] = True
 
         if advance_args:
             _broadcast_queue(serial)
@@ -906,9 +928,14 @@ def _on_robot_state_updated(serial: str, snapshot: dict[str, Any]) -> None:
             if is_gen3:
                 st = snapshot.get("state")
                 act = snapshot.get("action")
-                if st == 2 or act in (1, 4, 11):
+                details = snapshot.get("details") or {}
+                # Mark saw_busy when actively cleaning or docking
+                if st == 2 or act in (1, 2, 3, 4, 11):
                     ep["saw_busy"] = True
-                elif st in (1, 4) and (ep["saw_busy"] or (time.monotonic() - ep["started_at"] > 25.0)):
+                # Clean up once robot returns to idle/docked or errors out
+                if (st in (1, 4) or details.get("isDocked")) and (
+                    ep.get("saw_busy") or (time.monotonic() - ep["started_at"] > 25.0)
+                ):
                     cleanup_entry = _ephemeral_cleanups.pop(serial, None)
             else:
                 st = str(snapshot.get("state") or "").lower()
@@ -916,14 +943,14 @@ def _on_robot_state_updated(serial: str, snapshot: dict[str, Any]) -> None:
                 details = snapshot.get("details") or {}
                 if st == "busy" or act in ("cleaning", "docking"):
                     ep["saw_busy"] = True
-                elif st in ("idle", "error") and details.get("is_docked") and (
-                    ep["saw_busy"] or (time.monotonic() - ep["started_at"] > 30.0)
+                if (st in ("idle", "error") or details.get("is_docked")) and (
+                    ep.get("saw_busy") or (time.monotonic() - ep["started_at"] > 30.0)
                 ):
                     cleanup_entry = _ephemeral_cleanups.pop(serial, None)
 
     if cleanup_entry:
         def _run_cleanup(entry: dict[str, Any]) -> None:
-            time.sleep(3.0)
+            time.sleep(2.0)
             if entry["gen"] == "gen3":
                 _cleanup_gen3_ephemeral(serial, entry["map_id"])
             else:
