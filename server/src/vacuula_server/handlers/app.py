@@ -4,7 +4,14 @@ from vacuula_server.conn import Gen2Gen3Conn
 from vacuula_server.gen3.commands import send_chunk, build_command
 from vacuula_server.env import GEN3_PORT, GEN4_PORT, HA_INGRESS
 from vacuula_server.constants import APP_VERSION, MAPS_DIR, MINIMUM_INSTALLER_VERSION
-from vacuula_server.state import robot_connections, client_connections, pending_requests, PendingRequest
+from vacuula_server.state import (
+    robot_connections,
+    client_connections,
+    pending_requests,
+    PendingRequest,
+    get_cached_state_gen3,
+    get_cached_state_gen4,
+)
 from vacuula_server.handlers.events import robots_snapshot, notify_robots_changed, CLIENT_QUEUE_MAX
 from vacuula_server.db import get_session
 from vacuula_server.models.persistent_map import FloorPlan, PersistentMap
@@ -271,10 +278,26 @@ def post_robot_command(req: RouterHandler, serial: str) -> None:
         return
 
     key = str(req_id)
-    slot.event.wait(COMMAND_TIMEOUT_S)
+    is_state_query = (
+        (conn.gen == Generation.GEN3 and data.get("cmd") == "getRobotState") or
+        (conn.gen == Generation.GEN4 and data.get("ability") == "state.show")
+    )
+    wait_s = 2.5 if is_state_query else COMMAND_TIMEOUT_S
+    slot.event.wait(wait_s)
     pending_requests.pop(key, None)
     if slot.event.is_set():
         _send_quietly(lambda: req.send_response_data(slot.content, True, slot.status))
+    elif is_state_query:
+        logger.info(
+            "Robot %s state query timed out after %.1fs; returning cached/fallback state",
+            serial,
+            wait_s,
+        )
+        if conn.gen == Generation.GEN3:
+            resp_dict = get_cached_state_gen3(serial, req_id)
+        else:
+            resp_dict = get_cached_state_gen4(serial, req_id)
+        _send_quietly(lambda: req.send_response_data(resp_dict, True, 200))
     else:
         _send_quietly(lambda: req.send_error_response(504, "Robot did not answer in time"))
     

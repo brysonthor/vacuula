@@ -4,7 +4,7 @@ from vacuula_server import state
 import json
 import time
 from vacuula_server.discord import notify_gen3_state
-from vacuula_server.state import pending_requests, put_drop_oldest
+from vacuula_server.state import pending_requests, put_drop_oldest, update_gen3_state_cache
 import typing
 
 logger = logging.getLogger(__name__)
@@ -51,11 +51,24 @@ def robot_data(serial: str, data: bytes):
 
     logger.debug("robot_data: serial=%s eventId=%s reqId=%s data=%s", serial, eventId, reqId, data)
 
-    if reqId in pending_requests:
-        slot = pending_requests.get(reqId)
+    req_key = str(reqId) if reqId is not None else None
+    slot = None
+    if req_key and (req_key in pending_requests or reqId in pending_requests):
+        slot = pending_requests.get(req_key) or pending_requests.get(reqId)
         result = decoded.get("result")
         if slot is not None:
             slot.fulfill(data, 200 if result == "ok" else 400)
+
+    # Always update Gen 3 state cache when state or details are present
+    if (
+        decoded.get("state") is not None
+        or decoded.get("action") is not None
+        or "details" in decoded
+        or "details" in (decoded.get("data") or {})
+    ):
+        update_gen3_state_cache(serial, decoded)
+
+    if reqId is not None:
         if decoded.get("state") is not None or decoded.get("action") is not None:
             try:
                 notify_gen3_state(serial, decoded)

@@ -12,11 +12,16 @@ from vacuula_server.models.robot import Robot
 from vacuula_server.models.persistent_map import FloorPlan
 import threading
 from vacuula_server.models.run import Gen4__Run
-from vacuula_server.state import PendingRequest, put_drop_oldest, robot_connections
+from vacuula_server.state import (
+    PendingRequest,
+    put_drop_oldest,
+    robot_connections,
+    pending_requests,
+    client_connections,
+    update_gen4_state_cache,
+)
 from vacuula_server.handlers.events import notify_robots_changed
 from vacuula_server.generation import Generation
-
-from vacuula_server.state import pending_requests, client_connections
 from datetime import datetime, timezone
 import struct, json
 import os
@@ -167,9 +172,14 @@ def robot_response(rc: RobotConn, data: dict):
     reqId = data.get("id")
     slot = pending_requests.get(reqId)
     if slot is not None:
-        slot.fulfill(data, data["code"])
+        slot.fulfill(data, data.get("code", 200))
     body = data.get("body")
-    if isinstance(body, dict) and (body.get("state") is not None or body.get("action") is not None):
+    if isinstance(body, dict) and (
+        body.get("state") is not None
+        or body.get("action") is not None
+        or body.get("details") is not None
+    ):
+        update_gen4_state_cache(rc.serial, body)
         try:
             notify_gen4_state(rc.serial, {"to": {"service": "peer.state"}, "body": body})
         except Exception as e:
@@ -177,6 +187,12 @@ def robot_response(rc: RobotConn, data: dict):
 
 
 def robot_event(rc: RobotConn, data: dict):
+    service = data.get("to", {}).get("service")
+    if service == "peer.state":
+        body = data.get("body")
+        if isinstance(body, dict):
+            update_gen4_state_cache(rc.serial, body)
+
     try:
         notify_gen4_state(rc.serial, data)
     except Exception as e:
