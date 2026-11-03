@@ -8,10 +8,16 @@ from sqlalchemy import select
 
 from vacuula_server.db import get_session
 from vacuula_server.discord import notify_robot_connection
+from vacuula_server.fork_db import get_all_robot_telemetry
 from vacuula_server.gen3.data import Gen3Data
 from vacuula_server.gen4.data import Gen4Data
 from vacuula_server.models.robot import Robot
-from vacuula_server.state import put_drop_oldest, robot_connections
+from vacuula_server.state import (
+    extract_fleet_summary,
+    put_drop_oldest,
+    register_state_listener,
+    robot_connections,
+)
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -41,6 +47,8 @@ def robots_snapshot() -> dict:
             for robot, label in session.execute(select(Gen4Data.robot, Gen4Data.label_serial))
         }
 
+    telemetry_map = get_all_robot_telemetry()
+
     return {
         robot.serial: {
             "type": robot.type,
@@ -48,6 +56,7 @@ def robots_snapshot() -> dict:
             "name": robot.name,
             **({"label_serial": labels.get(robot.serial)} if robot.type == "neato.gen4" else {}),
             **({"installed_with": installed_with_map.get(robot.serial)} if robot.type == "neato.gen3" else {}),
+            **extract_fleet_summary(robot.serial, robot.type, telemetry_map.get(robot.serial)),
         }
         for robot in robots
     }
@@ -63,6 +72,37 @@ def broadcast(event: str, data) -> None:
         clients = list(_clients)
     for q in clients:
         put_drop_oldest(q, frame)
+
+
+_fleet_debounce_timer: threading.Timer | None = None
+_fleet_debounce_lock = threading.Lock()
+
+
+def _flush_fleet_broadcast() -> None:
+    global _fleet_debounce_timer
+    with _fleet_debounce_lock:
+        _fleet_debounce_timer = None
+    with _lock:
+        has_clients = len(_clients) > 0
+    if not has_clients:
+        return
+    try:
+        broadcast("robots", robots_snapshot())
+    except Exception as e:
+        logger.debug("Debounced fleet broadcast failed: %s", e)
+
+
+def _on_any_robot_state_changed(_serial: str, _snapshot: dict) -> None:
+    global _fleet_debounce_timer
+    with _fleet_debounce_lock:
+        if _fleet_debounce_timer is not None:
+            return
+        _fleet_debounce_timer = threading.Timer(0.8, _flush_fleet_broadcast)
+        _fleet_debounce_timer.daemon = True
+        _fleet_debounce_timer.start()
+
+
+register_state_listener(_on_any_robot_state_changed)
 
 
 def notify_robots_changed() -> None:

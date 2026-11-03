@@ -13,6 +13,7 @@
         "day": "Dia",
         "enabled": "Ativado",
         "disabled": "Desativado",
+        "online": "Online",
         "offline": "Offline",
         "options": "Opções",
         "notAvailable": "N/D",
@@ -160,7 +161,30 @@
         "drawHint": "Desenhar uma linha cria uma linha No-Go; usar o botão de polígono para ligar o cursor ao primeiro ponto cria uma zona ou zona No-Go.",
         "promote": "Usar mapa",
         "demote": "Parar de usar mapa",
-        "gen4UpdateBugHint": "NOTA: a modificação de mapas, zonas ou linhas pode desativar os agendamentos. Isto ocorre no firmware do robot, mas já estamos à procura de uma solução"
+        "gen4UpdateBugHint": "O Vacuula guarda e restaura automaticamente os seus agendamentos Gen 4 ao modificar mapas."
+    },
+    "nav": {
+        "overview": "Visão geral",
+        "fleetOverview": "Frota de Robots",
+        "robots": "Robots",
+        "commandCenter": "Painel de Controlo",
+        "mapsZones": "Mapas e Zonas",
+        "runHistory": "Histórico",
+        "schedule": "Agendamento",
+        "remoteDrive": "Controlo Manual",
+        "robotMaintenance": "Robot e Manutenção",
+        "serverLogs": "Logs do Servidor",
+        "appSettings": "Definições"
+    },
+    "fleet": {
+        "title": "Frota de Robots",
+        "subtitle": "Estado em tempo real, bateria e ações rápidas para todos os robots associados.",
+        "openWorkspace": "Abrir Painel"
+    },
+    "drive": {
+        "title": "Controlo Manual",
+        "startSession": "Iniciar Controlo Manual",
+        "stopSession": "Terminar e Parar"
     },
     "settings": {
         "serial": "N.º de série: {{serial}}",

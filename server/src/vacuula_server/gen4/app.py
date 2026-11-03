@@ -125,7 +125,7 @@ def get_boundaries(req: RouterHandler, serial: str, map_id: str) -> None:
         "vertices": b.vertices,
         "function": b.function,
         "type": b.type,
-    } for b in boundaries])
+    } for b in boundaries if not b.id.startswith("clean-here-")])
 
 
 from PIL import Image, ImageDraw
@@ -180,154 +180,18 @@ def _build_pgm_bytes(img: Image.Image, floorplan: FloorPlan) -> bytes:
     return header + bytes(pixels_16)
 
 def post_promote(req: RouterHandler, serial: str, map_id: str) -> None:
-    """POST /robot/<serial>/maps/<map_id>/promote - promote floorplan"""
+    """POST /robot/<serial>/maps/<map_id>/promote - promote floorplan while preserving schedules"""
+    from vacuula_server.orchestrator import promote_gen4_floorplan
 
-    # Refuse up front, before demoting or touching the DB: promote talks to the
-    # robot, so without a connection there is nothing valid to do.
-    if serial not in robot_connections:
-        req.send_bad_request("Robot not connected")
-        return
-
-    with get_session() as session:
-        floorplan: FloorPlan | None = session.execute(
-            select(FloorPlan).where(FloorPlan.id == map_id)
-        ).scalar_one_or_none()
-
-        if floorplan is None or floorplan.robot != serial:
-            req.send_not_found("Map not found")
-            return
-
-        boundaries: Sequence[Boundary] = session.execute(
-            select(Boundary)
-            .where(Boundary.floorplan == map_id, Boundary.enabled == True)
-        ).scalars().all()
-
-        promoted_map_id = session.scalar(
-            select(FloorPlan.id)
-            .where(
-                FloorPlan.robot == serial,
-                FloorPlan.promoted.is_(True),
-            )
-        )
-
-    if promoted_map_id is not None:
-        ok, msg = demote_floorplan(serial, promoted_map_id)
-        if not ok:
-            req.send_bad_request(msg)
-            return
-
-    
-    import base64, zlib
-
-    cleaning_zones = [b for b in boundaries if b.function == "cleaning"]
-    nogo_zones     = [b for b in boundaries if b.function == "nogo"]
-
-    nogo_img = Image.new("L", floorplan.imgsize, BG_PIXEL)
-    nogo_draw = ImageDraw.Draw(nogo_img)
-    for boundary in nogo_zones:
-        pts = [(p[0] * floorplan.imgsize[0], p[1] * floorplan.imgsize[1]) for p in boundary.vertices]
-        if (boundary.type == "polyline"):
-            nogo_draw.line(pts, fill=FG_PIXEL, width=LINE_WIDTH_PX, joint="curve")
-        elif (boundary.type == "polygon"):
-            nogo_draw.polygon(pts, fill=FG_PIXEL, outline=FG_PIXEL)
-    nogo_raw = _build_pgm_bytes(nogo_img, floorplan)
-
-    cleaning_tracks = []
-    for boundary in cleaning_zones:
-        clean_img = Image.new("L", floorplan.imgsize, BG_PIXEL)
-        clean_draw = ImageDraw.Draw(clean_img)
-        pts = [(p[0] * floorplan.imgsize[0], p[1] * floorplan.imgsize[1]) for p in boundary.vertices]
-        if (boundary.type == "polyline"):
-            clean_draw.line(pts, fill=FG_PIXEL, width=LINE_WIDTH_PX, joint="curve")
-        elif (boundary.type == "polygon"):
-            clean_draw.polygon(pts, fill=FG_PIXEL, outline=FG_PIXEL)
-        clean_raw = _build_pgm_bytes(clean_img, floorplan)
-        
-        cleaning_tracks.append({
-            "track_uuid": boundary.id,
-            "binary":     base64.b64encode(zlib.compress(clean_raw, level=9)).decode("ascii"),
-        })
-
-    #     with open(f'./clean_raw_{boundary.id}.pgm', 'wb') as f:
-    #         f.write(clean_raw)
-        
-
-    # with open('./nogo_raw.pgm', 'wb') as f:
-    #     f.write(nogo_raw)
-
-    map_dir = MAPS_DIR / serial / str(map_id)
-    with open(map_dir / "rank_binary.pgm.nz", 'rb') as rank:
-        with open(map_dir / "real_binary.pgm.nz", 'rb') as real:
-            # TODO: verify if this patching is really needed!!!!
-            real_binary_patched = _mark_targets_inside_zones(real.read(), cleaning_zones, floorplan)
-            payload = {
-                "ability": "maps.promote_floorplan",
-                "rank_uuid":     floorplan.id,
-                "rank_binary":   base64.b64encode(rank.read()).decode("ascii"),
-                "real_binary":   base64.b64encode(real_binary_patched).decode("ascii"),
-                "old_rank_uuid": None, # manually demoted
-                "base": {
-                    "x":   floorplan.base[0],
-                    "y":   floorplan.base[1],
-                    "dir": floorplan.base[2],
-                },
-                "date_created":    floorplan.created_at,
-                "nogo_track":      {
-                    "track_uuid": "a5730f32-3214-4fa8-bfc4-92ca4f83abcf",
-                    "binary":     base64.b64encode(zlib.compress(nogo_raw, level=9)).decode("ascii"),
-                },
-                "cleaning_tracks": cleaning_tracks,
-            }
-
-            conn = robot_connections.get(serial)
-            if conn is None:
-                req.send_bad_request("Robot not connected")
-                return
-
-            slot = PendingRequest()
-            req_id, err = robot_send_request(conn, payload, slot)
-            if req_id is None:
-                req.send_error_response(502, "Failed to send promote to robot")
-                return
-
-            PROMOTE_TIMEOUT_S = 60
-
-            slot.event.wait(PROMOTE_TIMEOUT_S)
-            pending_requests.pop(req_id, None)
-
-            if not slot.event.is_set():
-                logger.error("Robot, %s, did not respond to promote without timeout")
-                req.send_error_response(504, "Robot did not acknowledge promote in time")
-                return
-            if slot.status != 200:
-                logger.error("Robot, %s, rejected promote: status=%s body=%s", serial, slot.status, slot.content)
-                req.send_error_response(502, f"Robot rejected promote (status {slot.status})")
-                return
-
-
-            # Robot confirmed update worked, update db
-            with get_session() as session:
-                floor_plan = session.get(FloorPlan, map_id)
-
-                if floor_plan is None:
-                    req.send_not_found("Map not found")
-                    return
-
-                session.execute(
-                    update(FloorPlan)
-                    .where(
-                        FloorPlan.robot == floor_plan.robot,
-                        FloorPlan.id != map_id,
-                    )
-                    .values(promoted=False)
-                )
-
-                floor_plan.promoted = True
-
-                session.commit()
-
-
-    req.send_ok(payload)
+    status, resp = promote_gen4_floorplan(serial, map_id, preserve_schedules=True)
+    if status == 200:
+        req.send_ok(resp)
+    elif status == 404:
+        req.send_not_found(resp.get("error", "Map not found"))
+    elif status == 400:
+        req.send_bad_request(resp.get("error", "Bad request"))
+    else:
+        req.send_error_response(status, resp.get("error", "Failed to promote floorplan"))
 
     
 

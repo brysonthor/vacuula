@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from vacuula_server.db import get_session
+from vacuula_server.fork_db import get_notification_settings, pop_newly_worn_consumables
 from vacuula_server.models.robot import Robot
 
 logger = logging.getLogger(__name__)
@@ -94,8 +95,26 @@ _connection_states: dict[str, bool] = {}
 
 
 def get_webhook_url() -> str | None:
-    url = os.environ.get("DISCORD_WEBHOOK_URL", DEFAULT_WEBHOOK_URL).strip()
-    return url if url else None
+    try:
+        settings = get_notification_settings()
+        if not settings.get("enabled", True):
+            return None
+        url = str(settings.get("discord_webhook_url") or "").strip()
+        return url if url else None
+    except Exception:
+        url = os.environ.get("DISCORD_WEBHOOK_URL", DEFAULT_WEBHOOK_URL).strip()
+        return url if url else None
+
+
+def is_event_enabled(category: str) -> bool:
+    try:
+        settings = get_notification_settings()
+        if not settings.get("enabled", True):
+            return False
+        events = settings.get("events") or {}
+        return bool(events.get(category, True))
+    except Exception:
+        return True
 
 
 def format_error_code(code: str | None) -> str:
@@ -199,8 +218,11 @@ def send_embed(
     color: int,
     fields: list[dict[str, Any]] | None = None,
     footer: str = "Vacuula",
+    category: str | None = None,
 ) -> None:
     if not get_webhook_url():
+        return
+    if category and not is_event_enabled(category):
         return
 
     _ensure_worker_started()
@@ -230,6 +252,76 @@ def send_embed(
             _queue.put_nowait(payload)
         except Exception:
             pass
+
+
+def send_test_notification(webhook_url_override: str | None = None) -> tuple[bool, str]:
+    """Synchronously dispatch a test embed to validate webhook configuration."""
+    url = (webhook_url_override or "").strip() or (get_notification_settings().get("discord_webhook_url") or "").strip()
+    if not url:
+        return False, "No Discord webhook URL configured"
+    if not (url.startswith("https://") or url.startswith("http://")):
+        return False, "Webhook URL must start with http:// or https://"
+
+    payload = {
+        "username": "Vacuula",
+        "avatar_url": AVATAR_URL,
+        "embeds": [
+            {
+                "title": "🔔 Vacuula Test Notification",
+                "description": "Your Discord webhook is connected and ready to receive robot updates.",
+                "color": COLOR_TEAL,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "footer": {"text": "Vacuula"},
+            }
+        ],
+    }
+    try:
+        body = json.dumps(payload).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "Vacuula-Notifier/1.0",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status in (200, 204):
+                return True, "Test notification delivered"
+            return False, f"Discord returned HTTP {resp.status}"
+    except urllib.error.HTTPError as e:
+        return False, f"Discord HTTP {e.code}: {e.reason}"
+    except Exception as e:
+        return False, str(e)
+
+
+CONSUMABLE_LABELS = {
+    "filter": "Filter",
+    "main_brush": "Main Brush",
+    "side_brush": "Side Brush",
+    "sensors": "Sensors",
+}
+
+
+def notify_consumable_worn(serial: str, items: list[dict[str, Any]]) -> None:
+    if not items:
+        return
+    name = get_robot_name(serial)
+    fields = [
+        {
+            "name": CONSUMABLE_LABELS.get(item["consumable"], item["consumable"]),
+            "value": f"{item['remaining_hours']:.1f}h left ({item['percent_remaining']:.0f}%)",
+            "inline": True,
+        }
+        for item in items
+    ]
+    send_embed(
+        title="🛠️ Maintenance Reminder",
+        description=f"**{name}** has consumables nearing or past their service interval.",
+        color=COLOR_ORANGE,
+        fields=fields,
+        category="consumables",
+    )
 
 
 def notify_robot_connection(
@@ -274,6 +366,7 @@ def notify_robot_connection(
                 {"name": "Model", "value": type_str, "inline": True},
                 {"name": "Serial", "value": f"`{serial}`", "inline": False},
             ],
+            category="connectivity",
         )
     else:
         send_embed(
@@ -285,6 +378,7 @@ def notify_robot_connection(
                 {"name": "Model", "value": type_str, "inline": True},
                 {"name": "Serial", "value": f"`{serial}`", "inline": False},
             ],
+            category="connectivity",
         )
 
 
@@ -374,7 +468,15 @@ def notify_run_completed(serial: str, run_data: dict[str, Any], gen: str) -> Non
         description=f"**{name}** finished a cleaning session.",
         color=color,
         fields=fields,
+        category="run_summary",
     )
+
+    try:
+        worn = pop_newly_worn_consumables(serial)
+        if worn:
+            notify_consumable_worn(serial, worn)
+    except Exception as e:
+        logger.debug("Consumable wear check failed for %s: %s", serial, e)
 
 
 def notify_gen3_state(serial: str, decoded: dict[str, Any]) -> None:
@@ -475,6 +577,7 @@ def notify_gen4_state(serial: str, event_msg: dict[str, Any]) -> None:
                     {"name": "Robot", "value": name, "inline": True},
                     {"name": "Error Code", "value": f"`{code}`", "inline": True},
                 ],
+                category="errors",
             )
 
 
@@ -510,6 +613,7 @@ def _process_state_transition(
                         {"name": "Battery", "value": batt_str, "inline": True},
                         {"name": "Error Code", "value": f"`{error}`", "inline": False},
                     ],
+                    category="errors",
                 )
             return
 
@@ -535,6 +639,7 @@ def _process_state_transition(
                 {"name": "Battery", "value": batt_str, "inline": True},
                 {"name": "Error Code", "value": f"`{error}`", "inline": False},
             ],
+            category="errors",
         )
 
     # 2. Alert change
@@ -548,6 +653,7 @@ def _process_state_transition(
                 {"name": "Battery", "value": batt_str, "inline": True},
                 {"name": "Alert", "value": f"`{alert}`", "inline": False},
             ],
+            category="errors",
         )
 
     # 3. Transitions
@@ -562,6 +668,7 @@ def _process_state_transition(
                     {"name": "Action", "value": action_label, "inline": True},
                     {"name": "Battery", "value": batt_str, "inline": True},
                 ],
+                category="cleaning",
             )
         elif prev_hl == "cleaning" and current_hl == "paused":
             send_embed(
@@ -572,6 +679,7 @@ def _process_state_transition(
                     {"name": "Robot", "value": name, "inline": True},
                     {"name": "Battery", "value": batt_str, "inline": True},
                 ],
+                category="cleaning",
             )
         elif prev_hl == "paused" and current_hl == "cleaning":
             send_embed(
@@ -582,6 +690,7 @@ def _process_state_transition(
                     {"name": "Robot", "value": name, "inline": True},
                     {"name": "Battery", "value": batt_str, "inline": True},
                 ],
+                category="cleaning",
             )
         elif prev_hl in ("cleaning", "paused") and current_hl == "docking":
             send_embed(
@@ -592,6 +701,7 @@ def _process_state_transition(
                     {"name": "Robot", "value": name, "inline": True},
                     {"name": "Battery", "value": batt_str, "inline": True},
                 ],
+                category="cleaning",
             )
         elif prev_hl in ("docking", "cleaning") and current_hl == "docked":
             send_embed(
@@ -602,4 +712,5 @@ def _process_state_transition(
                     {"name": "Robot", "value": name, "inline": True},
                     {"name": "Battery", "value": batt_str, "inline": True},
                 ],
+                category="cleaning",
             )

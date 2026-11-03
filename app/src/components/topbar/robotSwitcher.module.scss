@@ -2,8 +2,8 @@
 
 .container {
     position: relative;
-    width: 90%;
-    height: 80%;
+    width: 92%;
+    height: 82%;
 }
 
 .trigger {
@@ -18,11 +18,11 @@
     width: 100%;
     height: 100%;
 
-    background: $bg;
-    border-radius: 2rem;
+    background: $surface;
+    border-radius: 1.6rem;
     border: 0.1rem solid $border;
-    box-shadow: $shadow-md;
-    padding: 0 1.4rem 0 1.8rem;
+    box-shadow: $shadow-sm;
+    padding: 0 1.4rem 0 1.6rem;
     gap: 1rem;
     overflow: hidden;
 
@@ -41,7 +41,7 @@
 
 .name {
     font-size: 1.5rem;
-    font-weight: 500;
+    font-weight: 600;
     color: $text-primary;
     white-space: nowrap;
     overflow: hidden;
@@ -65,13 +65,15 @@
     top: calc(100% + 0.6rem);
     left: 0;
     right: 0;
-    z-index: 20;
+    z-index: 50;
 
-    background: $bg;
-    border: 0.1rem solid $border;
+    background: $surface;
+    border: 0.1rem solid $border-strong;
     border-radius: 1.4rem;
     box-shadow: $shadow-lg;
     overflow: hidden;
+    max-height: 65dvh;
+    overflow-y: auto;
 }
 
 .dropdownItem {
@@ -100,38 +102,54 @@
     &:hover {
         background: $surface-hover;
     }
-
-    &:disabled {
-        cursor: not-allowed;
-    }
 }
 
 .dropdownItemActive {
     color: $accent;
+    background: $accent-soft;
 }
 
-// new: robot is linked but not connected — greyed out, not clickable
 .dropdownItemOffline {
     color: $text-muted;
-
-    &:hover {
-        background: transparent;
-    }
 }
 
 .dropdownName {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-weight: 500;
 }
 
-// new: small pill next to an offline robot's name in the dropdown
+.dropdownMeta {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-shrink: 0;
+}
+
+.chargeTag {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.15rem;
+    color: $text-muted;
+}
+
+.fleetCountPill {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.15rem;
+    color: $accent;
+    background: $accent-soft;
+    border-radius: 0.6rem;
+    padding: 0.15rem 0.65rem;
+}
+
 .offlineTag {
     font-size: 1.1rem;
-    color: $err;
+    color: $err-text;
     background: $err-soft;
     border-radius: 0.6rem;
-    padding: 0.1rem 0.6rem;
+    padding: 0.15rem 0.6rem;
     flex-shrink: 0;
 }
 

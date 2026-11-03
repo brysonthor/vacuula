@@ -1,0 +1,397 @@
+@use '../../variables.scss' as *;
+
+.page {
+    width: 100%;
+    max-width: 118rem;
+    margin: 0 auto;
+    padding: clamp(1.2rem, 2.5vw, 2.4rem);
+    display: flex;
+    flex-direction: column;
+    gap: 1.8rem;
+}
+
+.header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.2rem;
+}
+
+.titleGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+
+    h1 {
+        margin: 0;
+        font-size: clamp(1.8rem, 2.2vw, 2.4rem);
+        font-weight: 700;
+        color: $text-primary;
+    }
+
+    p {
+        margin: 0;
+        font-size: 1.25rem;
+        color: $text-muted;
+    }
+}
+
+.statusPill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 1.1rem;
+    border-radius: 999px;
+    font-size: 1.2rem;
+    font-weight: 600;
+    border: 1px solid $border;
+    background: $surface;
+    color: $text-primary;
+
+    &.online {
+        border-color: $accent-border;
+        background: $accent-soft;
+        color: $accent;
+    }
+
+    &.offline {
+        border-color: $warn;
+        background: $warn-bg;
+        color: $warn-text;
+    }
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 42rem), 1fr));
+    gap: 1.8rem;
+    align-items: start;
+}
+
+.card {
+    background: $surface;
+    border: 1px solid $border;
+    border-radius: 1.4rem;
+    padding: clamp(1.4rem, 2vw, 2rem);
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+    box-shadow: $shadow-sm;
+}
+
+.cardFull {
+    grid-column: 1 / -1;
+}
+
+.dangerCard {
+    border-color: $err;
+}
+
+.cardHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+
+    h2 {
+        margin: 0;
+        font-size: 1.55rem;
+        font-weight: 700;
+        color: $text-primary;
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+    }
+
+    p {
+        margin: 0.3rem 0 0;
+        font-size: 1.2rem;
+        color: $text-muted;
+    }
+}
+
+.actionBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 0.65rem 1.2rem;
+    border-radius: 0.85rem;
+    border: 1px solid $border;
+    background: $surface-neutral-2;
+    color: $text-primary;
+    font-size: 1.2rem;
+    font-weight: 600;
+    text-decoration: none;
+    @include pressable(true);
+
+    &.primary {
+        background: $accent;
+        color: $on-accent;
+        border-color: $accent;
+    }
+
+    &.danger {
+        background: $err-bg;
+        color: $err-text;
+        border-color: $err;
+    }
+}
+
+.telemetryGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+    gap: 1rem;
+}
+
+.telemetryItem {
+    background: $surface-neutral-2;
+    border: 1px solid $border;
+    border-radius: 1rem;
+    padding: 0.9rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+
+    .tLabel {
+        font-size: 1.05rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: $text-muted;
+        font-weight: 600;
+    }
+
+    .tValue {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: $text-primary;
+        font-variant-numeric: tabular-nums;
+        word-break: break-all;
+    }
+}
+
+.consumableGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr));
+    gap: 1.2rem;
+}
+
+.consumableCard {
+    background: $surface-neutral-2;
+    border: 1px solid $border;
+    border-radius: 1.1rem;
+    padding: 1.2rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+
+    &.worn {
+        border-color: $warn;
+    }
+}
+
+.consumableTop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.8rem;
+
+    .cName {
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: $text-primary;
+    }
+
+    .cPct {
+        font-size: 1.3rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.barTrack {
+    width: 100%;
+    height: 0.8rem;
+    border-radius: 999px;
+    background: $bg;
+    overflow: hidden;
+    border: 1px solid $border;
+}
+
+.barFill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.25s ease;
+
+    &.good {
+        background: $success;
+    }
+
+    &.medium {
+        background: $warn;
+    }
+
+    &.low {
+        background: $err;
+    }
+}
+
+.consumableMeta {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    font-size: 1.15rem;
+    color: $text-muted;
+    font-variant-numeric: tabular-nums;
+}
+
+.consumableActions {
+    display: flex;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    margin-top: 0.2rem;
+}
+
+.offlineNotice {
+    padding: 1.2rem 1.4rem;
+    border-radius: 1rem;
+    background: $warn-bg;
+    border: 1px solid $warn;
+    color: $warn-text;
+    font-size: 1.25rem;
+    line-height: 1.45;
+}
+
+.switchRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.2rem;
+    padding: 1rem 1.2rem;
+    border-radius: 1rem;
+    background: $accent-soft;
+    border: 1px solid $accent-border;
+
+    .switchTitle {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: $text-primary;
+    }
+}
+
+.logsToolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    align-items: center;
+}
+
+.logsList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.logRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 1rem 1.2rem;
+    border-radius: 1rem;
+    background: $surface-neutral-2;
+    border: 1px solid $border;
+
+    .logMeta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+
+        .logName {
+            font-family: var(--font-mono);
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: $text-primary;
+        }
+
+        .logSub {
+            font-size: 1.15rem;
+            color: $text-muted;
+            font-variant-numeric: tabular-nums;
+        }
+    }
+}
+
+.emptyText {
+    font-size: 1.25rem;
+    color: $text-muted;
+    margin: 0;
+}
+
+.dangerList {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}
+
+.dangerRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.2rem;
+    flex-wrap: wrap;
+    padding: 1.2rem 1.4rem;
+    border-radius: 1rem;
+    background: $surface-neutral-2;
+    border: 1px solid $border;
+
+    .dangerText {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        max-width: 60rem;
+
+        strong {
+            font-size: 1.35rem;
+            color: $text-primary;
+        }
+
+        span {
+            font-size: 1.2rem;
+            color: $text-muted;
+        }
+    }
+}
+
+.modalForm {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+
+    p {
+        margin: 0;
+        font-size: 1.3rem;
+        line-height: 1.5;
+        color: $text-muted;
+    }
+
+    input[type='number'] {
+        padding: 0.9rem 1.1rem;
+        border-radius: 0.8rem;
+        border: 1px solid $border;
+        background: $surface-neutral-2;
+        color: $text-primary;
+        font-size: 1.4rem;
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.modalActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.8rem;
+}

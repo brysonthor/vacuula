@@ -1,19 +1,54 @@
-body, html {
-    margin: 0;
-    padding: 0;
-    font-family: Arial, sans-serif;
-    color: var(--text);
-    background: var(--bg);
-    overscroll-behavior: none;
-    touch-action: none;
+:root {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+@supports not (scrollbar-color: auto) {
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 999px;
+  }
 }
 
 html {
-    font-size: 62.5%;
+  font-size: 62.5%;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-    font-size: 1.6rem;
+  font-size: 1.5rem;
+  line-height: 1.45;
+}
+
+html:has(dialog:modal) {
+  overflow: hidden;
+}
+
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overscroll-behavior: contain;
 }
 
 *,
@@ -22,11 +57,13 @@ body {
   box-sizing: border-box;
 }
 
-/* App-like scrolling: content still scrolls, but no scrollbar is drawn */
-* {
-  scrollbar-width: none;
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
 }
 
-*::-webkit-scrollbar {
-  display: none;
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }

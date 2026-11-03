@@ -1,46 +1,65 @@
-// import colors in the scss way
 @use '../../variables.scss' as *;
 
-// ── Layout ───────────────────────────────────────────────────────────────────
-.home {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    overflow-y: auto;
+.homeWrapper {
     width: 100%;
-    position: relative;
+    height: 100%;
+    overflow-y: auto;
+    container-type: inline-size;
 }
 
-// ── Alerts ───────────────────────────────────────────────────────────────────
+.homeGrid {
+    max-width: 136rem;
+    margin: 0 auto;
+    padding: 1.6rem 1.8rem 3rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.8rem;
+    align-items: start;
+
+    @container (min-width: 860px) {
+        grid-template-columns: minmax(34rem, 42rem) minmax(0, 1fr);
+        padding: 2.2rem 2.4rem 3.2rem;
+        gap: 2.2rem;
+    }
+}
+
+.leftCol,
+.rightCol {
+    display: flex;
+    flex-direction: column;
+    gap: 1.6rem;
+    min-width: 0;
+}
+
+// ── Alerts & Banners ─────────────────────────────────────────────────────────
 .alerts {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px 16px 4px;
-    grid-row: 1 ;
+    gap: 0.8rem;
 }
 
 .alertCard {
     display: flex;
     align-items: center;
-    gap: 10px;
-    border-radius: 14px;
-    padding: 11px 13px;
+    gap: 1rem;
+    border-radius: 1.4rem;
+    padding: 1.1rem 1.3rem;
 
-    &.error, &.critical {
+    &.error,
+    &.critical {
         background: $err-bg;
 
         .alertIconWrap {
             background: $err-icon-bg;
+            color: $err-text;
         }
-
         .alertTitle {
             color: $err-text;
         }
-
         .alertAction {
             background: $err-icon-bg;
             color: $err-text;
+            border: none;
         }
     }
 
@@ -49,12 +68,11 @@
 
         .alertIconWrap {
             background: $warn-icon-bg;
+            color: $warn-text;
         }
-
         .alertTitle {
             color: $warn-text;
         }
-
         .alertAction {
             background: $warn-icon-bg;
             color: $warn-text;
@@ -62,9 +80,8 @@
         }
     }
 
-     &.invalid {
+    &.invalid {
         background: $info-bg;
-
         .alertTitle {
             color: $info;
         }
@@ -72,9 +89,9 @@
 }
 
 .alertIconWrap {
-    width: 32px;
-    height: 32px;
-    border-radius: 10px;
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 1rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -88,44 +105,103 @@
 
 .alertTitle {
     font-size: 1.2rem;
-    font-weight: 600;
-    letter-spacing: 0.04rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    line-height: 1.2;
 }
 
 .alertSub {
-    font-size: 1.1rem;
-    margin-top: 2px;
+    font-size: 1.2rem;
+    margin-top: 0.2rem;
+    color: $text-primary;
 }
 
 .alertAction {
-    font-size: 1rem;
-    font-weight: 600;
-    padding: 0.5rem 1.2rem;
-    border-radius: 0.8rem;
-    cursor: pointer;
-    flex-shrink: 0;
-    background: transparent;
-    font-family: inherit;
-    letter-spacing: 0.2px;
     @include pressable;
+    font-size: 1.15rem;
+    font-weight: 600;
+    padding: 0.55rem 1.2rem;
+    border-radius: 0.8rem;
+    font-family: inherit;
+    flex-shrink: 0;
 }
 
-// ── Mascot + ring ─────────────────────────────────────────────────────────────
+.quickBoostBanner {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 1.1rem 1.4rem;
+    border-radius: 1.3rem;
+    background: $info-bg;
+    color: $info;
+    font-size: 1.28rem;
+    font-weight: 600;
+}
+
+.queueCard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.2rem;
+    padding: 1.2rem 1.5rem;
+    border-radius: 1.4rem;
+    background: $accent-soft;
+    border: 1px solid $accent-border;
+}
+
+.queueInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.queueTitle {
+    font-size: 1.32rem;
+    font-weight: 700;
+    color: $accent;
+}
+
+.queueSub {
+    font-size: 1.2rem;
+    color: $text-primary;
+}
+
+.queueCancelBtn {
+    @include pressable(true);
+    padding: 0.6rem 1.1rem;
+    border-radius: 0.9rem;
+    border: 1px solid $err-soft;
+    background: $err-bg;
+    color: $err-text;
+    font-size: 1.2rem;
+    font-weight: 600;
+    font-family: inherit;
+}
+
+// ── Hero Card ────────────────────────────────────────────────────────────────
+.heroCard {
+    background: $surface;
+    border: 1px solid $border;
+    border-radius: 1.8rem;
+    padding: 2rem 1.8rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.8rem;
+    box-shadow: $shadow-sm;
+}
+
 .mascotZone {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 16px 22px 8px;
-    position: relative;
-    flex-shrink: 0;
-    grid-row: 2;
+    gap: 1.2rem;
 }
 
 .statusRing {
-    width: 200px;
-    height: 200px;
+    width: 18.8rem;
+    height: 18.8rem;
     position: relative;
     display: flex;
     align-items: center;
@@ -134,46 +210,47 @@
 
 .ringSvg {
     position: absolute;
-    top: 0;
-    left: 0;
+    inset: 0;
+}
+
+.ringActive {
+    filter: drop-shadow(0 0 8px var(--accent-glow));
 }
 
 .robotImage {
-    width: 12rem;
-    height: 12rem;
+    width: 11.4rem;
+    height: 11.4rem;
     object-fit: contain;
     position: relative;
     z-index: 1;
-    // subtle idle float
     animation: float 4s ease-in-out infinite;
 }
 
 @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-0.6rem); }
+}
 
-    0%,
-    100% {
-        transform: translateY(0);
-    }
-
-    50% {
-        transform: translateY(-0.7rem);
-    }
+.heroMeta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .statusBadge {
-    margin-top: 1.2rem;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 0.8rem;
     background: $accent-2;
     border: 1px solid $accent-border;
-    border-radius: 2rem;
-    padding: 0.6rem 1.6rem;
+    border-radius: 999px;
+    padding: 0.55rem 1.5rem;
 }
 
 .pulseDot {
-    width: 0.7rem;
-    height: 0.7rem;
+    width: 0.75rem;
+    height: 0.75rem;
     border-radius: 50%;
     background: $accent;
     flex-shrink: 0;
@@ -181,170 +258,107 @@
 }
 
 @keyframes pulse {
-    0%,
-    100% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 0.35;
-    }
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
 }
 
 .statusLabel {
-    font-size: 1.2rem;
+    font-size: 1.28rem;
     font-weight: 600;
     color: $accent;
-    letter-spacing: 0.03rem;
+}
+
+.statusDivider {
+    color: $text-dim;
+}
+
+.chargeReadout {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: $text-primary;
 }
 
 .timeAgo {
-    font-size: 1rem;
+    font-size: 1.15rem;
+    color: $text-muted;
 }
 
-// ── Stats strip ───────────────────────────────────────────────────────────────
-.statsRow {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    padding: 8px 16px 16px;
-    grid-row: 3;
-}
-
-.statCard {
-    background: $surface;
-    border: 1px solid $border;
-    border-radius: 14px;
-    padding: 10px 8px;
-    text-align: center;
-}
-
-.statValue {
-    font-family: 'Space Mono', monospace;
-    font-size: 18px;
-    font-weight: 700;
-    color: $text-primary;
-    line-height: 1.1;
-}
-
-.statUnit {
-    font-size: 1rem;
-    font-weight: 700;
-    color: $accent;
-    letter-spacing: 0.5px;
-    vertical-align: super;
-    margin-left: 1px;
-}
-
-.statLabel {
-    font-size: 10px;
-    margin-top: 3px;
-    font-weight: 500;
-}
-
-// ── Controls ──────────────────────────────────────────────────────────────────
-.buttons {
+.transportRow {
     display: flex;
     align-items: center;
     justify-content: center;
-    justify-self: end;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 0.4rem 2.2rem 0;
-    grid-row: 4;
+    gap: 1.8rem;
+    width: 100%;
 }
 
-.ctrlBtn {
-    width: 8rem;
-    height: 7rem;
-    border-radius: 1.4rem;
-    background: $surface;
-    border: 1px solid $border;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    gap: 0.5rem;
-    cursor: pointer;
-    color: $text-primary;
-    @include pressable($hover-border: true);
-}
-
-.ctrlLabel {
-    font-size: 0.8rem;
-    color: $text-primary;
-    opacity: 0.5;
-}
-
-.ctrlSelection {
-    font-size: 1rem;
-    font-weight: 600;
-    letter-spacing: 0.03rem;
-    color: $text-primary;
-}
-
-.start {
-    width: 10rem;
-    height: 10rem;
+.primaryStartBtn {
+    @include pressable;
+    width: 8.6rem;
+    height: 8.6rem;
     border-radius: 50%;
     background: $accent;
     border: none;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
     color: $on-accent;
-
-    &:active {
-        transform: scale(0.96);
-        animation: none;
-    }
-    // &:hover {
-    //     transform: scale(1.06);
-    // }
-
-    // &:active {
-    //     transform: scale(0.96);
-    //     animation: none;
-    // }
+    box-shadow: 0 6px 20px $accent-glow;
+    flex-shrink: 0;
 }
 
-.disabled {
-    opacity: 0.3;
-    // background: $border;
-    // color: $text-muted;
-    cursor: not-allowed;
-    animation: none;
-    transform: none;
+.secondaryTransportBtn {
+    @include pressable(true);
+    min-width: 8.4rem;
+    height: 6.4rem;
+    padding: 0 1.2rem;
+    border-radius: 1.4rem;
+    background: $surface-neutral-2;
+    border: 1px solid $border;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    color: $text-primary;
+    font-size: 1.15rem;
+    font-weight: 600;
+    font-family: inherit;
 
-    &:hover {
-        transform: none;
-    }
-    &:active {
-        transform: none;
+    &:disabled {
+        opacity: 0.35;
     }
 }
 
-@keyframes glow {
+.utilityRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.8rem;
+    width: 100%;
+}
 
-    0%,
-    100% {
-        box-shadow: 0 0 0 0 $accent-glow;
-    }
+.utilBtn {
+    @include pressable(true);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.75rem 1.3rem;
+    border-radius: 1rem;
+    border: 1px solid $border;
+    background: $bg;
+    color: $text-primary;
+    font-size: 1.25rem;
+    font-weight: 500;
+    font-family: inherit;
 
-    50% {
-        box-shadow: 0 0 18px 6px $accent-ring;
+    &:disabled {
+        opacity: 0.4;
     }
 }
 
-// One period = one playback of the robot's find-me sound
-// (10820_NEATO_COMPRESSED_FINDME.mp3, 2.46 s + <=0.1 s of playback polling
-// in the firmware's hal_controller.__play_audio). Neato Gen4 queues it 5x
-// (robot_ui/ui_map.py: EVENT_UTILITIES_FIND_ME -> (locate_robot, 5)), so the
-// icon swings 5 iterations. Keyframe percentages follow the sound's envelope:
-//   2%  -> hard hit (0.05 s)      12% -> second hit (0.30 s)
-//  35%  -> bell peak (0.85 s)     53% -> end of swell (1.30 s)
-//  85%  -> sound faded (2.10 s)   rest: silence until the next repeat
 @keyframes bellSwing {
     0%   { transform: rotate(0deg); }
     2%   { transform: rotate(-6deg); }
@@ -357,75 +371,436 @@
     75%  { transform: rotate(-2deg); }
     85%  { transform: rotate(0deg); }
     100% { transform: rotate(0deg); }
-
-    /*0% {
-        transform: rotate(0deg);
-    }
-    25% {
-        transform: rotate(8deg);
-    }
-    50% {
-        transform: rotate(0deg);
-    }
-    75% {
-        transform: rotate(-8deg);
-    }
-    100% {
-        transform: rotate(0deg);
-    }*/
 }
 
 .bellIcon {
-    animation: bellSwing 2.5s ease-in-out 5;   // keep in sync with BELL_MS in home.tsx
-    // animation: bellSwing 0.5s ease-in-out;
-    transform-origin: top center;              // swing from the bell's crown
+    animation: bellSwing 2.5s ease-in-out 5;
+    transform-origin: top center;
 }
 
-// ── Category Drawer ──────────────────────────────────────────────────────────
-.drawerContent {
+// ── Setup Card & Shared Controls ─────────────────────────────────────────────
+.setupCard,
+.floorplanCard {
+    background: $surface;
+    border: 1px solid $border;
+    border-radius: 1.8rem;
+    padding: 1.8rem;
     display: flex;
     flex-direction: column;
-    gap: 1.6rem;
-    padding: 0.4rem 0;
+    gap: 1.4rem;
+    box-shadow: $shadow-sm;
 }
 
-.categorySection {
+.cardHeader {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.cardTitle {
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 650;
+    color: $text-primary;
+}
+
+.cardSubtitle {
+    margin: 0.25rem 0 0;
+    font-size: 1.2rem;
+    color: $text-muted;
+}
+
+.cardHeaderActions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.headerActionBtn {
+    @include pressable(true);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.65rem 1.15rem;
+    border-radius: 0.9rem;
+    border: 1px solid $border;
+    background: $bg;
+    color: $text-primary;
+    font-size: 1.22rem;
+    font-weight: 500;
+    font-family: inherit;
+
+    &:disabled {
+        opacity: 0.4;
+    }
+}
+
+.setupCardBody {
     display: flex;
     flex-direction: column;
+    gap: 1.5rem;
 }
 
-.categoryLabel {
-    margin-bottom: 0.8rem;
-    font-size: 0.9rem;
-    color: $accent;
-    font-weight: 600;
-    letter-spacing: 0.03rem;
-    text-transform: uppercase;
-}
-
-.categoryButtons {
+.fieldGroup {
     display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+}
+
+.fieldHeaderRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 0.8rem;
 }
 
-.categoryBtn {
-    flex: 1;
-    padding: 0.9rem 1rem;
+.fieldLabel {
+    font-size: 1.18rem;
+    font-weight: 600;
+    color: $text-muted;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.textActionBtn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: $accent;
+    font-size: 1.2rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.2rem 0.4rem;
+}
+
+.pillRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+}
+
+.pillBtn {
+    @include pressable(true);
+    flex: 1 1 auto;
+    min-width: 8.8rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    padding: 0.8rem 1.1rem;
     border-radius: 1rem;
+    border: 1px solid $border;
+    background: $bg;
+    color: $text-muted;
+    font-size: 1.28rem;
+    font-weight: 500;
+    font-family: inherit;
+
+    &.pillActive {
+        background: $accent-soft;
+        color: $accent;
+        border-color: $accent-border;
+        font-weight: 600;
+    }
+
+    &:disabled {
+        opacity: 0.4;
+    }
+}
+
+.inlineToggleRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.2rem;
+    padding: 1rem 1.2rem;
+    border-radius: 1.1rem;
+    background: $bg;
+    border: 1px solid $border;
+}
+
+.toggleInfo {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+}
+
+.toggleTitle {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: $text-primary;
+}
+
+.toggleSub {
+    font-size: 1.15rem;
+    color: $text-muted;
+}
+
+.zoneChipsWrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.zoneChip {
+    @include pressable(true);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.6rem 1.05rem;
+    border-radius: 999px;
+    border: 1px solid $border;
+    background: $bg;
+    color: $text-primary;
+    font-size: 1.25rem;
+    font-weight: 500;
+    font-family: inherit;
+
+    &.zoneChipActive {
+        background: $accent-soft;
+        border-color: $accent-border;
+        color: $accent;
+        font-weight: 600;
+    }
+}
+
+.seqBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.9rem;
+    height: 1.9rem;
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    background: $accent;
+    color: $on-accent;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.orderedList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-top: 0.4rem;
+}
+
+.queueHint {
+    font-size: 1.18rem;
+    color: $text-muted;
+    background: $bg;
+    border-radius: 0.9rem;
+    padding: 0.7rem 1rem;
+    border: 1px dashed $border-strong;
+}
+
+.orderedItem {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+    border-radius: 1rem;
+    background: $bg;
+    border: 1px solid $border;
+}
+
+.orderedItemTop {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.orderedName {
+    flex: 1;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: $text-primary;
+}
+
+.orderControls {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.miniIconBtn {
+    @include pressable;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 0.65rem;
+    border: 1px solid $border;
+    background: $surface;
+    color: $text-muted;
+
+    &:disabled {
+        opacity: 0.3;
+    }
+}
+
+.overrideRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+}
+
+.overrideSelect {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.75rem;
+    border: 1px solid $border;
     background: $surface;
     color: $text-primary;
-    cursor: pointer;
-    font-size: 0.95rem;
+    font-size: 1.18rem;
+    font-family: inherit;
+}
+
+// ── Interactive Floorplan Canvas ─────────────────────────────────────────────
+.floorplanCanvasBox {
+    position: relative;
+    width: 100%;
+    height: clamp(28rem, 48dvh, 52rem);
+    border-radius: 1.3rem;
+    overflow: hidden;
+    border: 1px solid $border;
+    background: var(--map-editor-bg);
+}
+
+.floorplanCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.mapZoomBar {
+    position: absolute;
+    right: 1rem;
+    bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    z-index: 3;
+}
+
+.zoomBtn {
+    @include pressable(true);
+    width: 3.4rem;
+    height: 3.4rem;
+    border-radius: 0.9rem;
+    border: 1px solid $border-strong;
+    background: $surface;
+    color: $text-primary;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: $shadow-sm;
+}
+
+.noFloorplanBox {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 1.2rem;
+    padding: 4rem 2rem;
+    border-radius: 1.3rem;
+    border: 1px dashed $border-strong;
+    background: $bg;
+    color: $text-muted;
+    font-size: 1.32rem;
+
+    p {
+        margin: 0;
+        max-width: 38rem;
+    }
+}
+
+// ── Active Session Telemetry & Stats Row ─────────────────────────────────────
+.telemetryBanner {
+    background: $surface;
+    border: 1px solid $accent-border;
+    border-radius: 1.5rem;
+    padding: 1.4rem 1.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.telemetryHeader {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    font-size: 1.35rem;
+    color: $accent;
+}
+
+.telemetryGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 1rem;
+}
+
+.telLabel {
+    display: block;
+    font-size: 1.1rem;
+    color: $text-muted;
+}
+
+.telVal {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.35rem;
     font-weight: 600;
-    pointer-events: auto;
-    border: none;
-
+    color: $text-primary;
+    text-transform: capitalize;
 }
 
-.activeBtn {
-    background: $surface-2;
+.statsRow {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+    gap: 1rem;
 }
 
+.statCard {
+    background: $surface;
+    border: 1px solid $border;
+    border-radius: 1.4rem;
+    padding: 1.3rem 1.2rem;
+    text-align: center;
+}
+
+.statValue {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: $text-primary;
+    line-height: 1.15;
+}
+
+.statUnit {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: $accent;
+    margin-left: 0.25rem;
+}
+
+.statLabel {
+    font-size: 1.12rem;
+    color: $text-muted;
+    margin-top: 0.4rem;
+    font-weight: 500;
+}
+
+// ── Sliders & Mobile Drawer Helpers ──────────────────────────────────────────
 .spotSettings {
     display: flex;
     flex-direction: column;
@@ -439,14 +814,14 @@
 
 .sliderLabel {
     margin-bottom: 0.6rem;
-    font-size: 0.9rem;
+    font-size: 1.2rem;
     color: $accent;
     font-weight: 600;
-    letter-spacing: 0.03rem;
-    font-family: 'Sora', system-ui, sans-serif;
 }
 
 .sliderValue {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
     color: $text-primary;
 }
 
@@ -457,17 +832,27 @@
     accent-color: $accent;
 }
 
+.undockedHint {
+    margin: 0;
+    font-size: 1.2rem;
+    color: $text-muted;
+    text-align: center;
+}
+
 .okButton {
-    padding: 0.9rem 2rem;
+    @include pressable;
+    padding: 1rem 2.4rem;
     border-radius: 1rem;
     border: none;
     background: $accent;
-    color: $text-primary;
-    cursor: pointer;
-    font-size: 1rem;
+    color: $on-accent;
+    font-size: 1.35rem;
     font-weight: 600;
     margin-top: 0.8rem;
     align-self: center;
-    min-width: 8rem;
-    @include pressable;
+}
+
+.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
 }

@@ -13,6 +13,7 @@
         "day": "Day",
         "enabled": "Enabled",
         "disabled": "Disabled",
+        "online": "Online",
         "offline": "Offline",
         "options": "Options",
         "notAvailable": "N/A",
@@ -166,7 +167,30 @@
         "drawHint": "Drawing a line makes a no-go line; using the polygon button to connect the cursor with the first point makes a zone.",
         "promote": "Use map",
         "demote": "Stop using map",
-        "gen4UpdateBugHint": "NOTE: modifying maps, zones, or lines may disable affected schedules. This is something that happens on the robot firmware, and we are looking into a workaround"
+        "gen4UpdateBugHint": "Vacuula automatically snapshots and restores your Gen 4 schedules when promoting or modifying floorplans."
+    },
+    "nav": {
+        "overview": "Overview",
+        "fleetOverview": "Fleet Overview",
+        "robots": "Robots",
+        "commandCenter": "Command Center",
+        "mapsZones": "Maps & Zones",
+        "runHistory": "Run History",
+        "schedule": "Schedule",
+        "remoteDrive": "Remote Drive",
+        "robotMaintenance": "Robot & Maintenance",
+        "serverLogs": "Server Logs",
+        "appSettings": "App & Server Settings"
+    },
+    "fleet": {
+        "title": "Fleet Overview",
+        "subtitle": "Real-time status, battery telemetry, and quick actions across all linked robots.",
+        "openWorkspace": "Open Workspace"
+    },
+    "drive": {
+        "title": "Manual Remote Drive",
+        "startSession": "Start Manual Drive",
+        "stopSession": "End Session & Stop"
     },
     "settings": {
         "serial": "Serial nr: {{serial}}",

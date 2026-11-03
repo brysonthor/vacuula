@@ -1,6 +1,20 @@
 import axios from "axios";
 import i18n from "./i18n";
-import { Neato, type QuickRobotInfo } from "./types";
+import {
+  Neato,
+  type ConsumableItem,
+  type DriveCombo,
+  type DriveCommand,
+  type DriveStatus,
+  type NotificationSettings,
+  type QuickRobotInfo,
+  type RobotLogArchive,
+  type RobotTelemetryResponse,
+  type ScheduleSkipState,
+  type ServerScheduleItem,
+  type ZoneQueueItem,
+  type ZoneQueueState,
+} from "./types";
 import type { NoGoLine, VacuulaMapData, Zone } from "./components/map/types";
 
 declare module 'axios' {
@@ -73,8 +87,8 @@ instance.interceptors.response.use(
 );
 
 export class Http {
-  static sendCmd<T>(robotSerial: string, cmd: object) {
-    return instance.post<T>(`/robot/${robotSerial}/command`, JSON.stringify(cmd));
+  static sendCmd<T>(robotSerial: string, cmd: object, skipLoader = false) {
+    return instance.post<T>(`/robot/${robotSerial}/command`, JSON.stringify(cmd), { skipLoader });
   }
 
   static getPersistentMaps(serial: string) {
@@ -106,7 +120,7 @@ export class Http {
   }
 
   static promoteFloorplan(serial: string, mapId: string) {
-    return instance.post(`/robot/${serial}/maps/${mapId}/promote`)
+    return instance.post<{ promoted: boolean; rank_uuid: string; schedules_restored?: boolean }>(`/robot/${serial}/maps/${mapId}/promote`)
   }
 
   static getCleanings(serial: string) {
@@ -138,9 +152,161 @@ export class Http {
     return instance.post(`/robot/${serial}`, data)
   }
 
+  // Notifications
+  static getNotificationSettings() {
+    return instance.get<NotificationSettings>('/settings/notifications', { skipLoader: true })
+  }
+
+  static saveNotificationSettings(data: Partial<NotificationSettings>) {
+    return instance.post<NotificationSettings>('/settings/notifications', data)
+  }
+
+  static testNotificationSettings(discord_webhook_url?: string) {
+    return instance.post<{ ok: boolean; message: string }>('/settings/notifications/test', { discord_webhook_url })
+  }
+
+  // Server Logs
+  static getServerLogs(full = false) {
+    return instance.get<string>(full ? '/log/full' : '/log', {
+      responseType: 'text',
+      skipLoader: true,
+    })
+  }
+
+  // Telemetry & Robot Logs
+  static getRobotTelemetry(serial: string, refresh = false) {
+    return instance.get<RobotTelemetryResponse>(
+      `/robot/${serial}/telemetry${refresh ? '?refresh=true' : ''}`,
+      { skipLoader: !refresh }
+    )
+  }
+
+  static getRobotLogs(serial: string) {
+    return instance.get<RobotLogArchive[]>(`/robot/${serial}/logs`, { skipLoader: true })
+  }
+
+  static getRobotLogDownloadUrl(serial: string, jobId: string, filename: string) {
+    return `${BASE_PATH}/api/robot/${encodeURIComponent(serial)}/logs/${encodeURIComponent(jobId)}/${encodeURIComponent(filename)}`
+  }
+
+  // Consumables
+  static getConsumables(serial: string) {
+    return instance.get<ConsumableItem[]>(`/robot/${serial}/consumables`, { skipLoader: true })
+  }
+
+  static resetConsumable(serial: string, consumable: string, threshold_hours?: number) {
+    return instance.post<ConsumableItem[]>(`/robot/${serial}/consumables/reset`, {
+      consumable,
+      threshold_hours,
+    })
+  }
+
+  static updateConsumableThreshold(serial: string, consumable: string, threshold_hours: number) {
+    return instance.post<ConsumableItem[]>(`/robot/${serial}/consumables/threshold`, {
+      consumable,
+      threshold_hours,
+    })
+  }
+
+  // Hybrid Server Schedules & Skip Next Run
+  static getServerSchedules(serial: string) {
+    return instance.get<ServerScheduleItem[]>(`/robot/${serial}/server-schedules`, { skipLoader: true })
+  }
+
+  static saveServerSchedule(serial: string, data: Partial<ServerScheduleItem>) {
+    return instance.post<ServerScheduleItem>(`/robot/${serial}/server-schedules`, data)
+  }
+
+  static deleteServerSchedule(serial: string, id: string) {
+    return instance.delete<{ deleted: boolean }>(`/robot/${serial}/server-schedules/${id}`)
+  }
+
+  static getScheduleSkip(serial: string) {
+    return instance.get<ScheduleSkipState>(`/robot/${serial}/schedule-skip`, { skipLoader: true })
+  }
+
+  static activateScheduleSkip(serial: string, skip_until_iso?: string) {
+    return instance.post<ScheduleSkipState & { ok?: boolean; error?: string }>(
+      `/robot/${serial}/schedule-skip`,
+      { skip_until_iso }
+    )
+  }
+
+  static cancelScheduleSkip(serial: string) {
+    return instance.delete<ScheduleSkipState>(`/robot/${serial}/schedule-skip`)
+  }
+
+  // Multi-Zone Queue & Ephemeral "Clean Here"
+  static getZoneQueue(serial: string) {
+    return instance.get<{ queue: ZoneQueueState | null }>(`/robot/${serial}/queue`, { skipLoader: true })
+  }
+
+  static startZoneQueue(
+    serial: string,
+    data: {
+      zones: ZoneQueueItem[]
+      mode?: number
+      modifier?: number
+      navigationMode?: number
+    }
+  ) {
+    return instance.post<{ ok: boolean; queue?: ZoneQueueState; error?: string }>(
+      `/robot/${serial}/queue`,
+      data
+    )
+  }
+
+  static cancelZoneQueue(serial: string, stopRobot = false) {
+    return instance.delete<{ cancelled: boolean }>(
+      `/robot/${serial}/queue${stopRobot ? '?stop=true' : ''}`
+    )
+  }
+
+  static startCleanHere(
+    serial: string,
+    data: {
+      map_id: string
+      vertices: [number, number][]
+      mode?: number | string
+      modifier?: number
+      navigationMode?: number | string
+      nogo_enabled?: boolean
+    }
+  ) {
+    return instance.post<{ ok: boolean; error?: string }>(`/robot/${serial}/clean-here`, data)
+  }
+
+  // Gen 3 Manual Remote Drive
+  static driveStart(serial: string) {
+    return instance.post<DriveStatus>(`/robot/${serial}/drive/start`, {})
+  }
+
+  static driveInput(serial: string, data: { combo?: DriveCombo; command?: DriveCommand }) {
+    return instance.post<DriveStatus>(`/robot/${serial}/drive/input`, data, { skipLoader: true })
+  }
+
+  static driveStop(serial: string) {
+    return instance.post<{ connected: boolean; stopped: boolean }>(`/robot/${serial}/drive/stop`, {})
+  }
+
+  static driveStatus(serial: string) {
+    return instance.get<DriveStatus>(`/robot/${serial}/drive/status`, { skipLoader: true })
+  }
+
+  // Cleanup Endpoints
+  static deleteRun(serial: string, runId: string) {
+    return instance.delete<{ deleted: boolean; run_id: string }>(`/robot/${serial}/run/${runId}`)
+  }
+
+  static purgeMap(serial: string, mapId: string) {
+    return instance.delete<{ deleted: boolean; map_id: string }>(`/robot/${serial}/maps/${mapId}/purge`)
+  }
+
+  static deleteRobot(serial: string) {
+    return instance.delete<{ deleted: boolean; serial: string }>(`/robot/${serial}`)
+  }
+
   static setLoadingStateCallback(cb: ((state: LoadingState) => void) | null) {
     loadingStateCallback = cb;
   }
 }
-
-

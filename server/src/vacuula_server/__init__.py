@@ -5,6 +5,9 @@ import threading
 from vacuula_server.constants import APP_VERSION
 from vacuula_server.db import check_db_is_up_to_date
 from vacuula_server.env import GEN3_ENABLED, GEN4_ENABLED, HA_INGRESS, MDNS_ENABLED
+from vacuula_server.fork_db import ensure_fork_tables
+from vacuula_server.orchestrator import start_scheduler_thread
+from vacuula_server.state import seed_cached_states_from_db
 import vacuula_server.gen3.init 
 import vacuula_server.gen4.init
 import vacuula_server.handlers.init
@@ -24,6 +27,9 @@ logger = logging.getLogger(__name__)
 def main():
     logger.info("Starting Vacuula Server %s", APP_VERSION)
     check_db_is_up_to_date()
+    ensure_fork_tables()
+    seed_cached_states_from_db()
+    start_scheduler_thread()
     ensure_ssl_certificate()
     if GEN3_ENABLED:
         threading.Thread(target=vacuula_server.gen3.init.start, daemon=True).start()

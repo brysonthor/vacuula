@@ -1,0 +1,209 @@
+@use '../../variables.scss' as *;
+
+.page {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: clamp(1rem, 2vw, 2rem);
+    gap: 1.2rem;
+    overflow: hidden;
+}
+
+.header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-shrink: 0;
+
+    .titleBlock {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+
+        h1 {
+            margin: 0;
+            font-size: clamp(1.8rem, 2.1vw, 2.3rem);
+            font-weight: 700;
+            color: $text-primary;
+        }
+
+        p {
+            margin: 0;
+            font-size: 1.2rem;
+            color: $text-muted;
+        }
+    }
+}
+
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    align-items: center;
+    justify-content: space-between;
+    background: $surface;
+    border: 1px solid $border;
+    border-radius: 1.2rem;
+    padding: 1rem 1.2rem;
+    flex-shrink: 0;
+}
+
+.searchWrap {
+    flex: 1 1 24rem;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    background: $surface-neutral-2;
+    border: 1px solid $border;
+    border-radius: 0.85rem;
+    padding: 0.6rem 1rem;
+
+    input {
+        flex: 1;
+        min-width: 0;
+        border: none;
+        background: transparent;
+        color: $text-primary;
+        font-size: 1.25rem;
+
+        &:focus {
+            outline: none;
+        }
+    }
+}
+
+.pillGroup {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    align-items: center;
+}
+
+.pill {
+    padding: 0.55rem 0.95rem;
+    border-radius: 999px;
+    border: 1px solid $border;
+    background: $surface-neutral-2;
+    color: $text-muted;
+    font-size: 1.15rem;
+    font-weight: 600;
+    @include pressable(true);
+
+    &.active {
+        background: $accent-soft;
+        border-color: $accent;
+        color: $accent;
+    }
+}
+
+.actionsGroup {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    align-items: center;
+}
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.6rem 1.05rem;
+    border-radius: 0.8rem;
+    border: 1px solid $border;
+    background: $surface-neutral-2;
+    color: $text-primary;
+    font-size: 1.18rem;
+    font-weight: 600;
+    text-decoration: none;
+    @include pressable(true);
+
+    &.active {
+        background: $accent;
+        color: $on-accent;
+        border-color: $accent;
+    }
+}
+
+.viewer {
+    flex: 1;
+    min-height: 0;
+    background: $surface;
+    border: 1px solid $border;
+    border-radius: 1.2rem;
+    overflow: auto;
+    padding: 1rem 1.2rem;
+    font-family: var(--font-mono);
+    font-size: 1.2rem;
+    line-height: 1.55;
+    box-shadow: $shadow-sm;
+}
+
+.logLine {
+    display: flex;
+    gap: 1rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.4rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+
+    &:hover {
+        background: $surface-hover;
+    }
+
+    .lineNum {
+        flex-shrink: 0;
+        width: 4.4rem;
+        text-align: right;
+        color: $text-dim;
+        user-select: none;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .lineText {
+        flex: 1;
+        min-width: 0;
+        color: $text-primary;
+    }
+
+    &.error .lineText {
+        color: $err-text;
+        background: $err-soft;
+        padding: 0 0.4rem;
+        border-radius: 0.3rem;
+    }
+
+    &.warn .lineText {
+        color: $warn-text;
+    }
+
+    &.debug .lineText {
+        color: $text-muted;
+    }
+
+    &.info .lineText {
+        color: $text-primary;
+    }
+}
+
+.emptyState {
+    padding: 3rem 1.5rem;
+    text-align: center;
+    color: $text-muted;
+    font-family: var(--font-sans);
+    font-size: 1.3rem;
+}
+
+.footerMeta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+    font-size: 1.15rem;
+    color: $text-muted;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+}

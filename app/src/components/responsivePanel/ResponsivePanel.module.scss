@@ -1,0 +1,64 @@
+@use '../../variables.scss' as *;
+
+.sidePanel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-width: 44vw;
+    min-width: 30rem;
+    flex-shrink: 0;
+    background: $surface;
+    border-left: 1px solid $border;
+    overflow: hidden;
+    z-index: 5;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.5rem 1.8rem;
+    border-bottom: 1px solid $border;
+    flex-shrink: 0;
+}
+
+.headerLeft {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.title {
+    margin: 0;
+    font-size: 1.55rem;
+    font-weight: 600;
+    color: $text-primary;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.iconBtn {
+    @include pressable;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.8rem;
+    border: 1px solid $border;
+    background: $surface-neutral-2;
+    color: $text-muted;
+    flex-shrink: 0;
+}
+
+.content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.6rem 1.8rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+}

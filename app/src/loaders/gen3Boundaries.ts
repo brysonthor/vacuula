@@ -6,25 +6,63 @@ export type Boundaries = (NoGoLine | Zone)[]
 // "serial:mapId" -> boundaries
 export const gen3Boundaries: Record<string, Boundaries> = {}
 const k = (serial: string, mapId: string) => `${serial}:${mapId}`
+const storageKey = (serial: string, mapId: string) => `vacuula.gen3Bounds.${serial}:${mapId}`
 
-// fetch one map from the robot and save it in the cache
-export async function fetchGen3MapBoundaries(serial: string, mapId: string) {
-    const res = await GEN3_COMMANDS.getMapBoundaries(serial, mapId)
-    gen3Boundaries[k(serial, mapId)] = res.data.data.boundaries ?? []
-    return gen3Boundaries[k(serial, mapId)]
-}
-
-// fetch all maps one at a time, skipping the ones already cached
-export async function fetchAllGen3Boundaries(serial: string, maps: { id: string }[]) {
-    for (const map of maps) {
-        if (gen3Boundaries[k(serial, map.id)]) continue
-        try {
-            await fetchGen3MapBoundaries(serial, map.id)
-        } catch (err) {
-            console.error('Failed to fetch boundaries for map', map.id, err)
-        }
+function readStoredBoundaries(serial: string, mapId: string): Boundaries {
+    try {
+        const raw = localStorage.getItem(storageKey(serial, mapId))
+        if (!raw) return []
+        const parsed = JSON.parse(raw)
+        return Array.isArray(parsed) ? parsed : []
+    } catch {
+        return []
     }
 }
 
+export function setCachedGen3Boundaries(serial: string, mapId: string, list: Boundaries) {
+    gen3Boundaries[k(serial, mapId)] = list
+    try {
+        localStorage.setItem(storageKey(serial, mapId), JSON.stringify(list))
+    } catch {
+        // ignore storage quota
+    }
+}
+
+// fetch one map from the robot and save it in memory + localStorage cache for offline viewing
+export async function fetchGen3MapBoundaries(serial: string, mapId: string, online = true) {
+    if (!online) {
+        if (!gen3Boundaries[k(serial, mapId)]) {
+            gen3Boundaries[k(serial, mapId)] = readStoredBoundaries(serial, mapId)
+        }
+        return gen3Boundaries[k(serial, mapId)]
+    }
+    try {
+        const res = await GEN3_COMMANDS.getMapBoundaries(serial, mapId)
+        const list = res.data.data.boundaries ?? []
+        setCachedGen3Boundaries(serial, mapId, list)
+        return list
+    } catch {
+        if (!gen3Boundaries[k(serial, mapId)]) {
+            gen3Boundaries[k(serial, mapId)] = readStoredBoundaries(serial, mapId)
+        }
+        return gen3Boundaries[k(serial, mapId)]
+    }
+}
+
+// fetch all maps one at a time, skipping the ones already cached
+export async function fetchAllGen3Boundaries(serial: string, maps: { id: string }[], online = true) {
+    for (const map of maps) {
+        if (gen3Boundaries[k(serial, map.id)]) continue
+        await fetchGen3MapBoundaries(serial, map.id, online)
+    }
+}
+
+export const getCachedBoundaries = (serial: string, mapId: string): Boundaries => {
+    if (!gen3Boundaries[k(serial, mapId)]) {
+        gen3Boundaries[k(serial, mapId)] = readStoredBoundaries(serial, mapId)
+    }
+    return gen3Boundaries[k(serial, mapId)] ?? []
+}
+
 export const getCachedZones = (serial: string, mapId: string): Zone[] =>
-    (gen3Boundaries[k(serial, mapId)] ?? []).filter((b): b is Zone => b.type === 'polygon')
+    getCachedBoundaries(serial, mapId).filter((b): b is Zone => b.type === 'polygon')

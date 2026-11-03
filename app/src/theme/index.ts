@@ -22,6 +22,10 @@ export interface AccentOption {
 // Add an accent here after adding its blocks in theme.css.
 export const ACCENTS: AccentOption[] = [
     { id: 'mint', label: 'Mint', preview: '#3ddc97' },
+    { id: 'sky', label: 'Sky', preview: '#38bdf8' },
+    { id: 'violet', label: 'Violet', preview: '#a78bfa' },
+    { id: 'amber', label: 'Amber', preview: '#fbbf24' },
+    { id: 'rose', label: 'Rose', preview: '#fb7185' },
 ]
 export const DEFAULT_ACCENT = ACCENTS[0].id
 export const ACCENT_STORAGE_KEY = 'vacuula.accent'

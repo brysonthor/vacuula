@@ -1,6 +1,6 @@
-import { GEN3_COMMANDS } from '../../http/gen3'
 import type { Neato } from '../../types'
 import type { NoGoLine, Point, Zone } from './types'
+import { fetchGen3MapBoundaries } from '../../loaders/gen3Boundaries'
 
 // RLE Decode helper
 export function decodeRLE(rle: Array<any>) {
@@ -27,16 +27,43 @@ export function getTouchAngle(t1: React.Touch, t2: React.Touch) {
 }
 
 // Coordinate conversion
-export function getWorldCoords(screenX: number, screenY: number, offset: { x: number; y: number }, zoom: number, mapSize: { height: number, width: number }): Point {
+export function getWorldCoords(
+    screenX: number,
+    screenY: number,
+    offset: { x: number; y: number },
+    zoom: number,
+    mapSize: { height: number; width: number }
+): Point {
     return [
         ((screenX - offset.x) / zoom) / mapSize.width, // x
         ((screenY - offset.y) / zoom) / mapSize.height // y
     ]
 }
 
-export function getCrosshairWorldCoords(canvasRef: React.RefObject<HTMLCanvasElement>, offset: { x: number; y: number }, zoom: number, mapSize: { height: number, width: number }): Point {
+export function getCanvasPointerWorldCoords(
+    canvas: HTMLCanvasElement,
+    clientX: number,
+    clientY: number,
+    offset: { x: number; y: number },
+    zoom: number,
+    mapSize: { height: number; width: number }
+): Point {
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = rect.width > 0 ? canvas.width / rect.width : 1
+    const scaleY = rect.height > 0 ? canvas.height / rect.height : 1
+    const sx = (clientX - rect.left) * scaleX
+    const sy = (clientY - rect.top) * scaleY
+    return getWorldCoords(sx, sy, offset, zoom, mapSize)
+}
+
+export function getCrosshairWorldCoords(
+    canvasRef: React.RefObject<HTMLCanvasElement | null | undefined>,
+    offset: { x: number; y: number },
+    zoom: number,
+    mapSize?: { height: number; width: number }
+): Point {
     const canvas = canvasRef.current
-    if (!canvas) return [0, 0]
+    if (!canvas || !mapSize) return [0, 0]
     // Center of screen in canvas coordinates
     const centerX = canvas.width / 2
     const centerY = canvas.height / 2
@@ -44,23 +71,53 @@ export function getCrosshairWorldCoords(canvasRef: React.RefObject<HTMLCanvasEle
 }
 
 export function calcRelevancy(vertices: Point[]): Point {
-    const x = vertices.reduce((sum, v) => sum + v[0], 0) / vertices.length;
-    const y = vertices.reduce((sum, v) => sum + v[1], 0) / vertices.length;
-    return [x, y];
+    if (!vertices.length) return [0, 0]
+    const x = vertices.reduce((sum, v) => sum + v[0], 0) / vertices.length
+    const y = vertices.reduce((sum, v) => sum + v[1], 0) / vertices.length
+    return [x, y]
+}
+
+// Ray-casting point-in-polygon hit test in normalized (0..1) world coords
+export function isPointInPolygon(point: Point, vertices: Point[]): boolean {
+    if (vertices.length < 3) return false
+    const [px, py] = point
+    let inside = false
+    for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+        const [xi, yi] = vertices[i]
+        const [xj, yj] = vertices[j]
+        const intersect =
+            yi > py !== yj > py &&
+            px < ((xj - xi) * (py - yi)) / (yj - yi || 1e-9) + xi
+        if (intersect) inside = !inside
+    }
+    return inside
+}
+
+export function makeRectangleVertices(p1: Point, p2: Point): Point[] {
+    const minX = Math.max(0, Math.min(1, Math.min(p1[0], p2[0])))
+    const maxX = Math.max(0, Math.min(1, Math.max(p1[0], p2[0])))
+    const minY = Math.max(0, Math.min(1, Math.min(p1[1], p2[1])))
+    const maxY = Math.max(0, Math.min(1, Math.max(p1[1], p2[1])))
+    return [
+        [minX, minY],
+        [maxX, minY],
+        [maxX, maxY],
+        [minX, maxY],
+    ]
 }
 
 export const upsertPreserveOrder = <T extends { id: string }>(
     list: T[],
     item: T
 ): T[] => {
-    const index = list.findIndex(b => b.id === item.id);
+    const index = list.findIndex(b => b.id === item.id)
 
-    if (index === -1) return [...list, item];
+    if (index === -1) return [...list, item]
 
-    const copy = [...list];
-    copy[index] = item;
-    return copy;
-};
+    const copy = [...list]
+    copy[index] = item
+    return copy
+}
 
 export const CELL_FILTERS = {
     any: (v: number) => v !== 0,
@@ -81,7 +138,6 @@ export function getMapContentBounds(
     for (let y = 0; y < mapSize.height; y++) {
         const row = y * mapSize.width
         for (let x = 0; x < mapSize.width; x++) {
-            // if (cells[row + x] !== 0) {
             if (CELL_FILTERS.freeSpaceOnly(cells[row + x])) {
                 if (x < minX) minX = x
                 if (x > maxX) maxX = x
@@ -137,13 +193,13 @@ export interface Gen3MapWithZones {
 export async function getAllGen3MapsWithZones(
     serial: string,
     maps: Neato.Gen3.PersistentMap[],
+    online = true,
 ): Promise<Gen3MapWithZones[]> {
     return Promise.all(
         maps.map(async (map) => {
-            if (!map.enabled) return { map, boundaries: [], zones: [] };
+            if (!map.enabled) return { map, boundaries: [], zones: [] }
             try {
-                const res = await GEN3_COMMANDS.getMapBoundaries(serial, map.id)
-                const boundaries: (NoGoLine | Zone)[] = (res.data.data.boundaries ?? [])
+                const boundaries = await fetchGen3MapBoundaries(serial, map.id, online)
                 return {
                     map,
                     boundaries,

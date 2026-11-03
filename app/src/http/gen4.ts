@@ -1,12 +1,11 @@
 import { Http } from "../http"
 import type { Neato } from "../types"
-import type { RobotBaseResponse } from "../types/neato/gen3"
 
 
 function getRobotState(serial: string) {
     return Http.sendCmd<Neato.Gen4.GetRobotStateResponse>(serial, {
         ability: "state.show",
-    })
+    }, true)
 }
 
 function findMe(serial: string) {
@@ -18,7 +17,7 @@ function findMe(serial: string) {
 function getSchedule(serial: string) {
     return Http.sendCmd<Neato.Gen4.GetRobotScheduleResponse>(serial, {
         ability: "scheduling.show",
-    })
+    }, true)
 }
 
 function sendToBase(serial: string) {
@@ -38,6 +37,13 @@ function deleteScheduledEvent(serial: string, id: string) {
     return Http.sendCmd<Neato.Gen4.GetRobotScheduleResponse>(serial, {
         ability: "scheduling.delete",
         id,
+    })
+}
+
+function setScheduleEnabled(serial: string, enabled: boolean) {
+    return Http.sendCmd<Neato.Gen4.GetRobotScheduleResponse>(serial, {
+        ability: "scheduling.enable",
+        enabled,
     })
 }
 
@@ -63,7 +69,7 @@ function resumeCleaning(serial: string) {
 function getSettings<Op extends Neato.Gen4.SettingsGetOperation>(serial: string, settings: Neato.Gen4.RobotSettingsGet<Op>) {
     return Http.sendCmd<Neato.Gen4.BaseResponse<Neato.Gen4.SettingsMap[Op]>>(serial, {
         ability: settings.operation,
-    })
+    }, true)
 }
 
 function setSettings<Op extends Neato.Gen4.SettingsSetOperation>(serial: string, settings: Neato.Gen4.RobotSettingsSet<Op>) {
@@ -95,24 +101,32 @@ function startCleaning(serial: string, mode: Neato.Gen4.CleaningMode, navigation
         navigation_mode: navigationMode,
     };
     const runs = mapId === undefined ? [{ map: null, settings}] : 
-        (zoneIds === undefined || zoneIds.length === 0) ? [{ map: { rank_id: mapId, track_id: null, nogo_enabled: nogoEnabled }, settings}] :
-        zoneIds.map(z => ({ map: { rank_id: mapId, track_id: z, nogo_enabled: nogoEnabled }, settings}));
+        (zoneIds === undefined || zoneIds.length === 0) ? [{ map: { rank_id: mapId, track_id: null, nogo_enabled: !!nogoEnabled }, settings}] :
+        zoneIds.map(z => ({ map: { rank_id: mapId, track_id: z, nogo_enabled: !!nogoEnabled }, settings}));
 
     return Http.sendCmd(serial, {
-            ability: "cleaning.start",
-            runs
-        })
+        ability: "cleaning.start",
+        runs
+    })
+}
+
+function startCleaningRuns(serial: string, runs: Neato.Gen4.SchduleRun[]) {
+    return Http.sendCmd(serial, {
+        ability: "cleaning.start",
+        runs,
+    })
 }
 
 function cleaningInfo(serial: string) {
-    return Http.sendCmd<RobotBaseResponse<Neato.Gen4.Cleaning>>(serial, {
+    return Http.sendCmd<Neato.Gen4.BaseResponse<Neato.Gen4.CleaningInfo>>(serial, {
         ability: "cleaning.show",
-    })
+    }, true)
 }
 
 
 export const GEN4_COMMANDS = {
     startCleaning,
+    startCleaningRuns,
     stopCleaning,
     pauseCleaning,
     resumeCleaning,
@@ -122,6 +136,7 @@ export const GEN4_COMMANDS = {
     getSchedule,
     updateOrAddSchduledEvent,
     deleteScheduledEvent,
+    setScheduleEnabled,
 
     demoteFloorplan,
     getSettings,

@@ -56,6 +56,12 @@
   --switch-knob: #999999;
 
   --battery-text-on-fill: #0f1113;
+
+  --scrollbar-thumb: #343b41;
+  --scrollbar-track: #14171a;
+
+  --font-sans: "Inter", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
 }
 
 /* ---------- Mode: soft (dark, easier on the eyes) ----------
@@ -101,6 +107,9 @@
   --switch-knob: #b0b7bf;
 
   --battery-text-on-fill: #25292e;
+
+  --scrollbar-thumb: #4c545d;
+  --scrollbar-track: #25292e;
 }
 
 /* ---------- Mode: light ---------- */
@@ -143,6 +152,9 @@
   --switch-knob: #ffffff;
 
   --battery-text-on-fill: #0f1113;
+
+  --scrollbar-thumb: #bcc4c0;
+  --scrollbar-track: #eef1f0;
 }
 
 /* ---------- Accent: mint (default) ---------- */
@@ -166,6 +178,74 @@
   --accent: #4fd19d;
   --accent-hover: #68d9ad;
   --on-accent: #0c2a1d;
+}
+
+/* ---------- Accent: sky ---------- */
+:root[data-accent="sky"] {
+  --accent: #38bdf8;
+  --accent-hover: #7dd3fc;
+  --on-accent: #062232;
+}
+:root[data-accent="sky"][data-theme="soft"] {
+  --accent: #56c2f0;
+  --accent-hover: #7dd1f5;
+  --on-accent: #092534;
+}
+:root[data-accent="sky"][data-theme="light"] {
+  --accent: #0284c7;
+  --accent-hover: #0369a1;
+  --on-accent: #ffffff;
+}
+
+/* ---------- Accent: violet ---------- */
+:root[data-accent="violet"] {
+  --accent: #a78bfa;
+  --accent-hover: #c4b5fd;
+  --on-accent: #1d103a;
+}
+:root[data-accent="violet"][data-theme="soft"] {
+  --accent: #b39dfa;
+  --accent-hover: #c8b7fc;
+  --on-accent: #1f133b;
+}
+:root[data-accent="violet"][data-theme="light"] {
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --on-accent: #ffffff;
+}
+
+/* ---------- Accent: amber ---------- */
+:root[data-accent="amber"] {
+  --accent: #fbbf24;
+  --accent-hover: #fcd34d;
+  --on-accent: #291b02;
+}
+:root[data-accent="amber"][data-theme="soft"] {
+  --accent: #f0bc42;
+  --accent-hover: #f5cc6b;
+  --on-accent: #291c04;
+}
+:root[data-accent="amber"][data-theme="light"] {
+  --accent: #d97706;
+  --accent-hover: #b45309;
+  --on-accent: #ffffff;
+}
+
+/* ---------- Accent: rose ---------- */
+:root[data-accent="rose"] {
+  --accent: #fb7185;
+  --accent-hover: #fda4af;
+  --on-accent: #310912;
+}
+:root[data-accent="rose"][data-theme="soft"] {
+  --accent: #f28293;
+  --accent-hover: #f79fab;
+  --on-accent: #300d15;
+}
+:root[data-accent="rose"][data-theme="light"] {
+  --accent: #e11d48;
+  --accent-hover: #be123c;
+  --on-accent: #ffffff;
 }
 
 /* ---------- Accent tints (derived, valid for every accent) ---------- */

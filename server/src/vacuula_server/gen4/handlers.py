@@ -6,6 +6,7 @@ from vacuula_server.conn import RobotConn
 from vacuula_server.constants import MAPS_DIR
 from vacuula_server.db import get_session
 from vacuula_server.discord import notify_gen4_state, notify_run_completed
+from vacuula_server.fork_db import upsert_robot_telemetry
 from vacuula_server.gen4.data import Gen4Data
 from vacuula_server.gen4.map_utils import parse_session
 from vacuula_server.models.robot import Robot
@@ -96,6 +97,15 @@ def handle_login(rc: RobotConn, msg):
             session.add(Gen4Data(robot=serial, label_serial=label_serial))
             session.commit()
 
+    info_body = content["body"] if isinstance(content.get("body"), dict) else {}
+    upsert_robot_telemetry(
+        serial,
+        ip_address=ip,
+        model=info_body.get("model") or info_body.get("sku"),
+        firmware=info_body.get("firmware") or info_body.get("software_version"),
+        info_json=info_body,
+        touch_seen=True,
+    )
     logger.info("Robot %s logged in with label_serial %s", serial, label_serial)
     notify_robots_changed()
 

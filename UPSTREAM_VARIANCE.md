@@ -123,7 +123,34 @@ In upstream:
 
 ---
 
-## 5. Fork Configuration & Syncing Upstream
+## 5. Responsive Desktop + Mobile UI & Full-Stack Capability Parity
+
+### Feature Description
+Upgrades Vacuula from a `640px`-clamped mobile-only web UI into a responsive Desktop + Mobile web application (including Home Assistant Ingress support) and exposes the full hardware capabilities of Neato Gen 3 (Botvac Connected / D3–D7) and Neato Gen 4 (D800/D8/D9/D10) robots.
+
+#### Key Architectural Highlights:
+1. **Upstream-Safe Additive Database Schema (`fork_db.py`)**:
+   - Because `server/src/vacuula_server/db.py` (`check_db_is_up_to_date()`) asserts a single linear Alembic head revision on boot, fork-specific SQLite tables (`fork__server_setting`, `fork__consumable_reset`, `fork__server_schedule`, `fork__schedule_skip`, `fork__robot_telemetry`) live in a dedicated SQLAlchemy `ForkBase(DeclarativeBase)` initialized via `ForkBase.metadata.create_all(engine)` on startup rather than adding migration files under `server/migrations/versions/`. Merging new upstream Alembic revisions requires zero migration rebasing.
+2. **Multi-Robot Fleet Overview, Shareable Routes & Offline Read-Only Mode**:
+   - `/` renders a live Fleet Overview dashboard across all linked robots (battery, state, alerts, model/firmware, quick transport actions, and onboarding empty state when 0 robots are linked).
+   - `/settings` and `/logs` remain accessible even when 0 robots are linked or all robots are offline.
+   - `/robot/:serial/*` provides deep-linkable workspaces (`Command Center`, `Map Studio`, `Run History`, `Schedule`, `Robot & Maintenance`, and Gen 3 `Remote Drive`). Offline robots hydrate from cached server telemetry + `localStorage` boundaries in read-only mode instead of locking out the UI.
+3. **Orchestration, Ephemeral "Clean Here", & Gen 4 Schedule Preservation (`orchestrator.py`)**:
+   - Snapshots Gen 4 schedules prior to `promote_gen4_floorplan` (`post_promote`) and restores them automatically so floorplan edits no longer disable routines.
+   - Provides a server-orchestrated Multi-Zone Cleaning Queue for Gen 3 robots (`queue` SSE broadcasts), ephemeral rectangle/polygon **"Clean Here"** runs on both Gen 3 and Gen 4, and a background Hybrid Scheduler supporting **"Skip Next Run"** windows, one-off ("Clean Tomorrow") runs, and Gen 3 multi-zone scheduled routines.
+4. **Gen 3 Manual Remote Drive Proxy (`manual_drive.py`)**:
+   - Zero-dependency RFC 6455 LAN WebSocket client proxying `ws://<robot-ip>:<port>/drive` (`getRobotManualCleaningInfo`) over Vacuula's HTTP API with a 1.5s deadman motor-stop switch, paired with a desktop WASD/Arrow + mobile touch D-pad UI (`/robot/:serial/drive`).
+5. **Consumable Lifespans, UI-Managed Discord Notifications & Diagnostics (`fork_api.py`)**:
+   - Tracks runtime wear across Filter (120h), Main Brush (300h), Side Brush (200h), and Sensors (30h) with reset/threshold controls and optional Discord alerts.
+   - Exposes Discord webhook URL, per-category event toggles, and a live test button in `/settings` (falling back to `DISCORD_WEBHOOK_URL` if unset in DB), plus a searchable live-tail Server Log Viewer (`/logs`), Gen 3 `.tar.gz` diagnostic archive pulls/downloads, and run/map/robot deletion endpoints.
+
+### Files Added / Modified
+- **Server (`server/src/vacuula_server/`)**: `fork_db.py`, `orchestrator.py`, `manual_drive.py`, `handlers/fork_api.py`, `handlers/route_matcher.py`, `handlers/events.py`, `discord.py`, `state.py`, `__init__.py`, `gen3/handlers/nucleo.py`, `gen4/handlers.py`, `gen4/app.py`.
+- **Frontend (`app/src/`)**: Responsive shell (`app.tsx`, `app.module.scss`, `Sidebar`, `ResponsivePanel`, native `<dialog>` `Modal`, `Topbar`, `Navbar`), 5 accent themes + thin themed scrollbars (`theme/`), and workspaces (`Fleet`, `home`, `map`, `runs`, `schedule`, `robotSettings`, `settings`, `serverLogs`, `drive`).
+
+---
+
+## 6. Fork Configuration & Syncing Upstream
 
 ### Building & Running Locally with Docker Compose
 Create a local `.env` (gitignored) with optional Discord webhook configuration:

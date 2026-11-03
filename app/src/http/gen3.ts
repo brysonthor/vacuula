@@ -1,10 +1,10 @@
 import { Http } from "../http"
-import type { NoGoLine, SetZone, Zone } from "../pages/map/types"
+import type { NoGoLine, SetZone, Zone } from "../components/map/types"
 import type { ScheduleEvent } from "../pages/schedule/types"
 import type { Neato } from "../types"
 import type { Preferences } from "../types/neato/gen3"
 import type { GetMapBoundariesResponse, GetPreferencesResponse, GetScheduleResponse, RobotBaseResponse } from "../types/neato/gen3/api"
-import { CleaningCategory, CleaningMode, CleaningNavigationMode, type GetRobotStateResponse } from "../types/neato/gen3/state"
+import { CleaningCategory, CleaningMode, CleaningModifier, CleaningNavigationMode, type GetRobotStateResponse } from "../types/neato/gen3/state"
 
 
 
@@ -13,7 +13,7 @@ function getLocalStats(serial: string) {
 }
 
 function getRobotState(serial: string) {
-    return Http.sendCmd<GetRobotStateResponse>(serial, { cmd: "getRobotState" })
+    return Http.sendCmd<GetRobotStateResponse>(serial, { cmd: "getRobotState" }, true)
 }
 
 function getGeneralInfo(serial: string) {
@@ -33,17 +33,17 @@ function findMe(serial: string) {
 }
 
 
-function uploadLogs(serial: string) {
+function uploadLogs(serial: string, recentCount = 1) {
     return Http.sendCmd(serial, {
         cmd: "uploadLogs",
         params: {
-            recentCount: 1
+            recentCount
         }
     })
 }
 
 function getLogsUploadState(serial: string) {
-    return Http.sendCmd(serial, { cmd: "getLogsUploadState" })
+    return Http.sendCmd(serial, { cmd: "getLogsUploadState" }, true)
 }
 
 
@@ -63,23 +63,38 @@ function resumeCleaning(serial: string) {
     return Http.sendCmd(serial, { cmd: "resumeCleaning" })
 }
 
-function startCleaning(serial: string, category: CleaningCategory, mode: CleaningMode, navigationMode: CleaningNavigationMode) {
+function startCleaning(
+    serial: string,
+    category: CleaningCategory,
+    mode: CleaningMode,
+    navigationMode: CleaningNavigationMode,
+    modifier: CleaningModifier = CleaningModifier.NORMAL
+) {
     return Http.sendCmd(serial, {
         cmd: "startCleaning",
         params: {
             category,
             mode,
+            modifier,
             navigationMode,
         }
     })
 }
 
-function startCleaningSpot(serial: string, height: number, width: number, mode: CleaningMode, navigationMode: CleaningNavigationMode) {
+function startCleaningSpot(
+    serial: string,
+    height: number,
+    width: number,
+    mode: CleaningMode,
+    navigationMode: CleaningNavigationMode,
+    modifier: CleaningModifier = CleaningModifier.NORMAL
+) {
     return Http.sendCmd(serial, {
         cmd: "startCleaning",
         params: {
             category: CleaningCategory.SPOT,
             mode,
+            modifier,
             navigationMode,
             spotHeight: height,
             spotWidth: width,
@@ -87,12 +102,20 @@ function startCleaningSpot(serial: string, height: number, width: number, mode: 
     })
 }
 
-function startCleaningZone(serial: string, mapId: string, zoneId: string, mode: CleaningMode, navigationMode: CleaningNavigationMode) {
+function startCleaningZone(
+    serial: string,
+    mapId: string,
+    zoneId: string,
+    mode: CleaningMode,
+    navigationMode: CleaningNavigationMode,
+    modifier: CleaningModifier = CleaningModifier.NORMAL
+) {
     return Http.sendCmd(serial, {
         cmd: "startCleaning",
         params: {
             category: CleaningCategory.MAP,
             mode,
+            modifier,
             navigationMode,
             mapId,
             boundaryId: zoneId,
@@ -101,12 +124,19 @@ function startCleaningZone(serial: string, mapId: string, zoneId: string, mode: 
 }
 
 // Is this really how it works?
-function startCleaningZones(serial: string, zoneIds: string[], mode: CleaningMode, navigationMode: CleaningNavigationMode) {
+function startCleaningZones(
+    serial: string,
+    zoneIds: string[],
+    mode: CleaningMode,
+    navigationMode: CleaningNavigationMode,
+    modifier: CleaningModifier = CleaningModifier.NORMAL
+) {
     return Http.sendCmd(serial, {
         cmd: "startCleaning",
         params: {
             category: CleaningCategory.MAP,
             mode,
+            modifier,
             navigationMode,
             boundaryIds: zoneIds,
         }
@@ -117,7 +147,7 @@ function startCleaningZones(serial: string, zoneIds: string[], mode: CleaningMod
 
 
 function getPreferences(serial: string) {
-    return Http.sendCmd<GetPreferencesResponse>(serial, { cmd: "getPreferences" })
+    return Http.sendCmd<GetPreferencesResponse>(serial, { cmd: "getPreferences" }, true)
 }
 
 function setPreferences(serial: string, preferences: Preferences) {
@@ -130,16 +160,16 @@ function startPersistentMapExploration(serial: string) {
 }
 
 function getMapBoundaries(serial: string, mapId: string) {
-    return Http.sendCmd<GetMapBoundariesResponse>(serial, { cmd: "getMapBoundaries", params: { mapId } })
+    return Http.sendCmd<GetMapBoundariesResponse>(serial, { cmd: "getMapBoundaries", params: { mapId } }, true)
 }
 
 
-function setMapBoundaries(serial: string, mapId: string, boundaries: (NoGoLine | SetZone)[]) {
+function setMapBoundaries(serial: string, mapId: string, boundaries: (NoGoLine | SetZone | Zone)[]) {
     return Http.sendCmd(serial, { cmd: "setMapBoundaries", params: { mapId, boundaries } })
 }
 
 function getSchedule(serial: string) {
-    return Http.sendCmd<GetScheduleResponse>(serial, { cmd: "getSchedule" })
+    return Http.sendCmd<GetScheduleResponse>(serial, { cmd: "getSchedule" }, true)
 }
 
 function setSchedule(serial: string, events: ScheduleEvent[]) {
@@ -147,11 +177,11 @@ function setSchedule(serial: string, events: ScheduleEvent[]) {
 }
 
 function enableSchedule(serial: string) {
-    return Http.sendCmd<RobotBaseResponse>(serial, { cmd: "enableSchedule" })
+    return Http.sendCmd<RobotBaseResponse<{}>>(serial, { cmd: "enableSchedule" })
 }
 
 function disableSchedule(serial: string) {
-    return Http.sendCmd<RobotBaseResponse>(serial, { cmd: "disableSchedule" })
+    return Http.sendCmd<RobotBaseResponse<{}>>(serial, { cmd: "disableSchedule" })
 }
 
 export const GEN3_COMMANDS = {

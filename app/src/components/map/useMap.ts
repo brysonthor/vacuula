@@ -41,7 +41,7 @@ export function useMap({
     redrawKey,
     backgroundToken
 }: UseMapOptions) {
-    const canvasRef = useRef<HTMLCanvasElement | undefined>(undefined)
+    const canvasRef = useRef<HTMLCanvasElement | null>(null)
     const cellsRef = useRef<number[] | null>(null)
     const runCellsRef = useRef<number[] | null>(null)
     const runIgnoreSetRef = useRef<Set<number>>(new Set())
@@ -76,15 +76,15 @@ export function useMap({
         extraDrawRef.current?.(ctx, canvas, currentZoom, currentOffset, mapSize)
     }, [mapSize, shape, backgroundToken])
 
-    const onMouseDown = useCallback((e: React.MouseEvent) => {
+    const onMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
         userInteractedRef.current = true
         handleMouseDown(e)
     }, [handleMouseDown])
-    const onTouchStart = useCallback((e: React.TouchEvent) => {
+    const onTouchStart = useCallback((e: React.TouchEvent<HTMLCanvasElement>) => {
         userInteractedRef.current = true
         handleTouchStart(e)
     }, [handleTouchStart])
-    const onWheel = useCallback((e: React.WheelEvent) => {
+    const onWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
         userInteractedRef.current = true
         handleWheel(e)
     }, [handleWheel])
@@ -176,6 +176,11 @@ export function useMap({
         }
     }, [mapSize])
 
+    const zoomBy = useCallback((factor: number) => {
+        userInteractedRef.current = true
+        setZoom(z => Math.max(DRAWING.MIN_ZOOM, Math.min(DRAWING.MAX_ZOOM, z * factor)))
+    }, [setZoom])
+
     return {
         canvasRef, cellsRef, mapSize,
         zoom, offset, isDragging, hasMoved,
@@ -190,6 +195,8 @@ export function useMap({
             onTouchEnd: handleTouchEnd
         },
         draw,
-        resetView
+        resetView,
+        zoomBy,
+        setZoom,
     }
 }

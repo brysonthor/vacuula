@@ -2,6 +2,8 @@ from __future__ import annotations
 import logging
 import socket
 from vacuula_server.gen3.commands import send_chunk, build_heartbeat
+from vacuula_server.fork_db import upsert_robot_telemetry
+from vacuula_server.orchestrator import refresh_gen3_telemetry_async
 from vacuula_server.state import robot_connections
 from vacuula_server.handlers.events import notify_robots_changed
 from vacuula_server.gen3.utils import get_robot_serial
@@ -41,8 +43,10 @@ def nucleo_init(req: RouterHandler) -> None:
     send_chunk(req.wfile, build_heartbeat())
     conn = RobotConn(serial, Generation.GEN3, Gen2Gen3Conn(gen3_data.password, req.wfile))
     robot_connections[serial] = conn
+    upsert_robot_telemetry(serial, ip_address=req.client_address[0], touch_seen=True)
     logger.info("Robot %s connected", serial)
     notify_robots_changed()
+    refresh_gen3_telemetry_async(serial)
 
     try:
         while True:

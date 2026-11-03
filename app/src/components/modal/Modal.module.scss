@@ -1,0 +1,74 @@
+@use '../../variables.scss' as *;
+
+.dialog {
+    margin: auto;
+    width: calc(100% - 3.2rem);
+    border: 1px solid $border-strong;
+    border-radius: 1.8rem;
+    background: $surface;
+    color: $text-primary;
+    box-shadow: $shadow-lg;
+    padding: 0;
+    overflow: hidden;
+
+    &::backdrop {
+        background: $overlay-bg;
+        backdrop-filter: blur(4px);
+    }
+}
+
+.inner {
+    display: flex;
+    flex-direction: column;
+    max-height: 85dvh;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.2rem;
+    padding: 1.6rem 2rem;
+    border-bottom: 1px solid $border;
+}
+
+.title {
+    margin: 0;
+    font-size: 1.7rem;
+    font-weight: 600;
+    color: $text-primary;
+}
+
+.closeBtn {
+    @include pressable;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: 0.9rem;
+    border: 1px solid $border;
+    background: $surface-neutral-2;
+    color: $text-muted;
+}
+
+.body {
+    padding: 1.8rem 2rem;
+    overflow-y: auto;
+    font-size: 1.4rem;
+    line-height: 1.5;
+    color: $text-primary;
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+}
+
+.footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding: 1.4rem 2rem;
+    border-top: 1px solid $border;
+    background: $bg;
+}
