@@ -533,20 +533,37 @@ def start_clean_here(serial: str, data: dict[str, Any]) -> tuple[int, dict[str, 
             b for b in existing
             if isinstance(b, dict) and b.get("name") != "__vacuula_clean_here__"
         ]
-        # Serialize existing boundaries in the format setMapBoundaries expects
-        payload_boundaries = [
-            {
-                "type": b.get("type", "polygon"),
-                "vertices": b.get("vertices", []),
+        # Calculate relevancy (centroid) for polygons which Gen 3 firmware requires
+        def _calc_relevancy(v_list: list[list[float]]) -> list[float]:
+            if not v_list:
+                return [0.0, 0.0]
+            cx = sum(p[0] for p in v_list) / len(v_list)
+            cy = sum(p[1] for p in v_list) / len(v_list)
+            return [round(cx, 4), round(cy, 4)]
+
+        # Serialize existing boundaries in the format setMapBoundaries expects, preserving IDs & relevancy
+        payload_boundaries = []
+        for b in cleaned_existing:
+            b_type = b.get("type", "polygon")
+            b_verts = b.get("vertices", [])
+            item: dict[str, Any] = {
+                "id": b.get("id") or str(uuid.uuid4()),
+                "type": b_type,
+                "vertices": b_verts,
                 "name": b.get("name", ""),
                 "color": b.get("color", "#00E5A3"),
                 "enabled": bool(b.get("enabled", True)),
             }
-            for b in cleaned_existing
-        ]
+            if b_type == "polygon":
+                item["relevancy"] = b.get("relevancy") or _calc_relevancy(b_verts)
+            payload_boundaries.append(item)
+
+        target_id = str(uuid.uuid4())
         payload_boundaries.append({
+            "id": target_id,
             "type": "polygon",
             "vertices": norm_vertices,
+            "relevancy": _calc_relevancy(norm_vertices),
             "name": "__vacuula_clean_here__",
             "color": "#00E5A3",
             "enabled": True,
@@ -557,7 +574,7 @@ def start_clean_here(serial: str, data: dict[str, Any]) -> tuple[int, dict[str, 
             {"cmd": "setMapBoundaries", "params": {"mapId": map_id, "boundaries": payload_boundaries}},
             timeout_s=20.0,
         )
-        if st_set != 200:
+        if st_set != 200 or (isinstance(resp_set, dict) and resp_set.get("result") != "ok"):
             return 502, {"error": "Failed to save temporary zone on robot"}
 
         # Retrieve assigned boundary ID
@@ -570,14 +587,14 @@ def start_clean_here(serial: str, data: dict[str, Any]) -> tuple[int, dict[str, 
             )
             assigned_boundaries = ((resp_get2 or {}).get("data") or {}).get("boundaries") or []
 
-        target_id = None
+        found_id = None
         for b in assigned_boundaries or []:
             if isinstance(b, dict) and b.get("name") == "__vacuula_clean_here__" and b.get("id"):
-                target_id = b["id"]
+                found_id = b["id"]
                 break
 
-        if not target_id:
-            return 502, {"error": "Robot did not return an ID for temporary zone"}
+        if found_id:
+            target_id = found_id
 
         clean_params = {
             "category": 4,
