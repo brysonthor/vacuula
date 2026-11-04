@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { Link } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import TimeAgo from 'react-timeago'
 import {
@@ -101,7 +101,6 @@ export default function Home() {
     const { formatLength, formatArea } = useUnits()
     const { mascot } = useMascot()
     const isDesktop = useIsDesktop()
-    const navigate = useNavigate()
 
     const [mobileSetupOpen, setMobileSetupOpen] = useState(false)
     const [bellAnimating, setBellAnimating] = useState(false)
@@ -1063,14 +1062,14 @@ export default function Home() {
                             </button>
 
                             {supportsManualDrive && (
-                                <button
-                                    type="button"
+                                <Link
+                                    to={`/robot/${encodedSerial}/drive`}
                                     className={styles.utilBtn}
-                                    onClick={() => navigate(`/robot/${encodedSerial}/drive`)}
+                                    title={t('nav.remoteDrive', 'Remote Drive')}
                                 >
                                     <IoGameControllerOutline size={17} />
                                     <span>{t('nav.remoteDrive', 'Remote Drive')}</span>
-                                </button>
+                                </Link>
                             )}
 
                             {!isDesktop && (
@@ -1144,24 +1143,23 @@ export default function Home() {
                             </div>
                             <div className={styles.cardHeaderActions}>
                                 {activeMapId && (
-                                    <button
-                                        type="button"
-                                        className={styles.headerActionBtn}
-                                        disabled={!robot.online}
-                                        onClick={() => navigate(`/robot/${encodedSerial}/map?cleanHere=1&map=${encodeURIComponent(activeMapId)}`)}
+                                    <Link
+                                        to={`/robot/${encodedSerial}/map?cleanHere=1&map=${encodeURIComponent(activeMapId)}`}
+                                        className={`${styles.headerActionBtn} ${!robot.online ? styles.disabled : ''}`}
+                                        title={t('map.cleanHere', 'Clean Here')}
                                     >
                                         <MdOutlineCropFree size={16} />
                                         <span>{t('map.cleanHere', 'Clean Here')}</span>
-                                    </button>
+                                    </Link>
                                 )}
-                                <button
-                                    type="button"
+                                <Link
+                                    to={`/robot/${encodedSerial}/map`}
                                     className={styles.headerActionBtn}
-                                    onClick={() => navigate(`/robot/${encodedSerial}/map`)}
+                                    title={t('map.manageMaps', 'Map Studio')}
                                 >
                                     <IoMapOutline size={16} />
                                     <span>{t('map.manageMaps', 'Map Studio')}</span>
-                                </button>
+                                </Link>
                             </div>
                         </header>
 
@@ -1188,13 +1186,12 @@ export default function Home() {
                                         'No active floorplan yet. Run a full house clean or promote a saved map in Map Studio.'
                                     )}
                                 </p>
-                                <button
-                                    type="button"
+                                <Link
+                                    to={`/robot/${encodedSerial}/map`}
                                     className={styles.headerActionBtn}
-                                    onClick={() => navigate(`/robot/${encodedSerial}/map`)}
                                 >
                                     {t('map.openMapStudio', 'Open Map Studio')}
-                                </button>
+                                </Link>
                             </div>
                         )}
                     </section>
