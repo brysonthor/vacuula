@@ -26,7 +26,7 @@ export default function RobotSwitcher({ icon, children }: { icon?: ReactNode; ch
     }, [isOpen])
 
     const entries = Object.entries(robots ?? {})
-    const isFleetView = location.pathname === '/'
+    const isFleetView = location.pathname === '/' || location.pathname === ''
     const isGlobalRoute = isFleetView || location.pathname === '/settings' || location.pathname === '/logs'
     const selected = robot && robots ? robots[robot.serial] : undefined
 

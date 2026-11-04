@@ -26,7 +26,7 @@ const STORAGE_KEY = 'vacuula.sidebarCollapsed'
 
 export default function Sidebar() {
     const { t } = useTranslation()
-    const { robot, robots, selectRobot, serverInfo } = useApp()
+    const { robots, selectRobot, serverInfo } = useApp()
     const { mascot } = useMascot()
     const navigate = useNavigate()
     const location = useLocation()
@@ -45,7 +45,7 @@ export default function Sidebar() {
 
     const robotEntries = Object.entries(robots ?? {})
     const activeRobotMatch = location.pathname.match(/^\/robot\/([^/]+)/)
-    const activeSerial = activeRobotMatch ? decodeURIComponent(activeRobotMatch[1]) : robot?.serial
+    const activeSerial = activeRobotMatch ? decodeURIComponent(activeRobotMatch[1]) : undefined
     const activeEntry = activeSerial && robots ? robots[activeSerial] : undefined
     const encodedSerial = activeSerial ? encodeURIComponent(activeSerial) : ''
 

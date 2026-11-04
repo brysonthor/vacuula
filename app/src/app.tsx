@@ -103,6 +103,14 @@ const App = () => {
             <main className={styles.mainArea}>
                 <Routes>
                     <Route
+                        path="/"
+                        element={
+                            <div className={styles.workspace}>
+                                <Fleet />
+                            </div>
+                        }
+                    />
+                    <Route
                         index
                         element={
                             <div className={styles.workspace}>
