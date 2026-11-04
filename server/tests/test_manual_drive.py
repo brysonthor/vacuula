@@ -141,12 +141,16 @@ def test_drive_session_commands_and_lifecycle():
     serial = "OPS123-activesess"
 
     sess = _DriveSession(serial, mock_ws, "192.168.1.50", 8080, "MyWiFi")
-    
-    # Test commands
-    sess.send_command("vacuum-on")
+    # Neato Gen 3 firmware defaults manual cleaning to Turbo with suction and brush roll running
     assert sess.vacuum_on is True
+    assert sess.brush_on is True
+    assert sess.eco_on is False
+
+    # Test commands
     sess.send_command("vacuum-off")
     assert sess.vacuum_on is False
+    sess.send_command("vacuum-on")
+    assert sess.vacuum_on is True
 
     sess.send_command("brush-on")
     assert sess.brush_on is True
@@ -274,6 +278,39 @@ def test_ws_client_auth_rejection():
                 secret="bad_secret",
             )
         assert "rejected manual drive authorization" in str(exc_info.value)
+
+
+def test_drive_input_clean_spot():
+    from vacuula_server.manual_drive import _DriveSession, drive_input, _sessions
+    serial = "OPS123-spotsess"
+    mock_ws = MagicMock()
+    mock_ws.connected = True
+    sess = _DriveSession(serial, mock_ws, "192.168.1.50", 8080, "WiFi")
+    sess.eco_on = True
+    _sessions[serial] = sess
+
+    with patch("vacuula_server.manual_drive.send_robot_command_sync") as mock_cmd:
+        mock_cmd.return_value = (200, {"result": "ok"})
+        st, res = drive_input(serial, {"command": "clean-spot"})
+        assert st == 200
+        assert res["spot_cleaning"] is True
+        assert res["connected"] is False
+        assert serial not in _sessions
+        mock_cmd.assert_called_once_with(
+            serial,
+            {
+                "cmd": "startCleaning",
+                "params": {
+                    "category": 3,
+                    "mode": 1,
+                    "modifier": 1,
+                    "spotWidth": 200,
+                    "spotHeight": 200,
+                },
+            },
+            timeout_s=10.0,
+        )
+
 
 
 

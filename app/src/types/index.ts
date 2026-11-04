@@ -191,4 +191,6 @@ export interface DriveStatus {
     brush_on?: boolean
     eco_on?: boolean
     robot_message?: Record<string, any> | null
+    spot_cleaning?: boolean
+    stopped?: boolean
 }

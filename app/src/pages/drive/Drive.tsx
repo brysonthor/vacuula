@@ -77,11 +77,14 @@ export default function Drive() {
             try {
                 const res = await Http.driveInput(robot.serial, { command })
                 setStatus(res.data)
+                if (res.data?.spot_cleaning) {
+                    navigate(`/robot/${encodeURIComponent(robot.serial)}`)
+                }
             } catch (err: unknown) {
                 setError(extractErrMsg(err, 'Hardware toggle failed.'))
             }
         },
-        [robot.serial]
+        [robot.serial, navigate]
     )
 
     const stopMotion = useCallback(() => {

@@ -258,9 +258,10 @@ class _DriveSession:
         self.last_motion_ts: float = time.monotonic()
         self.last_ui_ts: float = time.monotonic()
         self.last_robot_message: dict[str, Any] | None = getattr(ws, "initial_message", None)
-        self.vacuum_on: bool = False
-        self.brush_on: bool = False
-        self.eco_on: bool = True
+        # Neato Gen 3 firmware defaults manual cleaning to Turbo with suction and brush roll running
+        self.vacuum_on: bool = True
+        self.brush_on: bool = True
+        self.eco_on: bool = False
         self.stop_event = threading.Event()
         self._lock = threading.Lock()
 
@@ -378,6 +379,8 @@ class _DriveSession:
             return
         self.stop_event.set()
         with suppress(Exception):
+            self.ws.send_text(json.dumps({"command": "vacuum-off"}))
+            self.ws.send_text(json.dumps({"command": "brush-off"}))
             self.ws.send_text(json.dumps({"combo": "stop"}))
         self.ws.close()
         with _sessions_lock:
@@ -471,6 +474,27 @@ def drive_input(serial: str, data: dict[str, Any]) -> tuple[int, dict[str, Any]]
             sess.set_combo(combo_str)
         if command is not None:
             cmd_str = str(command)
+            if cmd_str == "clean-spot":
+                eco = sess.eco_on
+                # Stop manual drive and cleanly close WebSocket session
+                drive_stop(serial)
+                spot_params = {
+                    "category": 3,
+                    "mode": 1 if eco else 2,
+                    "modifier": 1,
+                    "spotWidth": 200,
+                    "spotHeight": 200,
+                }
+                st, resp = send_robot_command_sync(
+                    serial,
+                    {"cmd": "startCleaning", "params": spot_params},
+                    timeout_s=10.0,
+                )
+                if st == 200 and isinstance(resp, dict) and resp.get("result") == "ok":
+                    return 200, {"connected": False, "spot_cleaning": True, "stopped": True}
+                err = (resp or {}).get("error") if isinstance(resp, dict) else "Robot rejected spot cleaning"
+                return 502, {"error": f"Spot clean failed: {err}"}
+
             if cmd_str not in VALID_COMMANDS:
                 return 400, {"error": f"Unsupported command: {cmd_str}"}
             sess.send_command(cmd_str)
