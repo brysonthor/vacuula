@@ -45,6 +45,15 @@ def handle_login(rc: RobotConn, msg):
         return
     
     rc.serial = serial
+
+    old_rc = robot_connections.get(serial)
+    if old_rc and old_rc is not rc:
+        old_rc.stop_event.set()
+        try:
+            old_rc.conn.socket.close()
+        except Exception:
+            pass
+
     robot_connections[serial] = rc
 
     ip = rc.conn.socket.getpeername()[0]

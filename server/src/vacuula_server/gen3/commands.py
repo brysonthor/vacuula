@@ -6,9 +6,20 @@ import logging
 from vacuula_server.db import get_session
 from vacuula_server.generation import get_robot_by_serial, get_gen3_robot_data
 import json
+import threading
 import time
 
 logger = logging.getLogger(__name__)
+
+_send_locks: dict[int, threading.Lock] = {}
+_send_locks_lock = threading.Lock()
+
+def get_send_lock(wfile):
+    with _send_locks_lock:
+        key = id(wfile)
+        if key not in _send_locks:
+            _send_locks[key] = threading.Lock()
+        return _send_locks[key]
 
 def hmac_sha256(message: str, secret: str) -> str:
     signature = hmac.new(
@@ -52,8 +63,9 @@ req_id = 1
 
 def send_chunk(wfile, payload_bytes):
     chunk = f"{len(payload_bytes):X}\r\n".encode() + payload_bytes + b"\r\n"
-    wfile.write(chunk)
-    wfile.flush()
+    with get_send_lock(wfile):
+        wfile.write(chunk)
+        wfile.flush()
 
 
 def build_heartbeat():

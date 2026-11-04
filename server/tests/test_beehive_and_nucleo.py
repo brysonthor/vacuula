@@ -237,6 +237,43 @@ def test_nucleo_init():
     assert req_ok.status == 200
 
 
+def test_nucleo_init_timeout_heartbeat():
+    serial = "OPS12345-aabbccddeeff"
+    with get_session() as session:
+        if not session.get(Robot, serial):
+            session.add(Robot(serial=serial, type="neato.gen3", name="MyBot"))
+            session.add(Gen3Data(robot=serial, password="secret_pwd", installed_with="1.0.0"))
+            session.commit()
+
+    req = MockHandler(headers=auth_header(serial))
+
+    # Mock readline: first raises TimeoutError (triggers heartbeat ping), then returns payload, then EOF
+    payload = b'{"state": 1, "action": 0}\r\n'
+    size_hex = f"{len(payload):x}\r\n".encode()
+
+    call_count = 0
+    def mock_readline():
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise TimeoutError("Simulated idle timeout")
+        elif call_count == 2:
+            return size_hex
+        elif call_count == 3:
+            return payload
+        return b""
+
+    req.rfile.readline = mock_readline
+
+    with patch("vacuula_server.gen3.handlers.nucleo.refresh_gen3_telemetry_async"), \
+         patch("vacuula_server.gen3.handlers.nucleo.send_chunk") as mock_send_chunk:
+        nucleo.nucleo_init(req)
+
+    # First send_chunk on connect + second send_chunk on TimeoutError
+    assert mock_send_chunk.call_count >= 2
+    assert req.status == 200
+
+
 def test_s3_upload_multipart(tmp_path, monkeypatch):
     monkeypatch.setattr(s3_upload, "UPLOADS_DIR", tmp_path / "uploads")
     serial = "OPS12345-aabbccddeeff"

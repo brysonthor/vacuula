@@ -140,9 +140,10 @@ def handle_robot(conn, addr):
         traceback.print_exc()
     finally:
         rc.stop_event.set()
-        robot_connections.pop(rc.serial, None)
-        logger.info("Robot %s disconnected", rc.serial or addr)
-        notify_robots_changed()
+        if robot_connections.get(rc.serial) is rc:
+            robot_connections.pop(rc.serial, None)
+            logger.info("Robot %s disconnected", rc.serial or addr)
+            notify_robots_changed()
         try:
             conn.close()
         except Exception:

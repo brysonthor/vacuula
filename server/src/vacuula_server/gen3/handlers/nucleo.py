@@ -31,9 +31,10 @@ def nucleo_init(req: RouterHandler) -> None:
     sock = req.connection
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
     if hasattr(socket, "TCP_USER_TIMEOUT"):
-        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_USER_TIMEOUT, 20_000)
-    # Give Gen 3 robots 180s leeway for Wi-Fi power-save / retries (heartbeats are ~30s)
-    sock.settimeout(180)
+        sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_USER_TIMEOUT, 90_000)
+    # Read timeout of 60s; on timeout the server pings with a heartbeat chunk
+    # to keep the radio active and connection healthy without dropping the session.
+    sock.settimeout(60)
 
     req.send_response(200)
     req.send_header("Transfer-Encoding", "chunked")
@@ -42,6 +43,16 @@ def nucleo_init(req: RouterHandler) -> None:
 
     send_chunk(req.wfile, build_heartbeat())
     conn = RobotConn(serial, Generation.GEN3, Gen2Gen3Conn(gen3_data.password, req.wfile))
+
+    # Signal and cleanly supersede any previous connection for this robot
+    old_conn = robot_connections.get(serial)
+    if old_conn and old_conn is not conn:
+        old_conn.stop_event.set()
+        try:
+            old_conn.conn.wfile.close()
+        except Exception:
+            pass
+
     robot_connections[serial] = conn
     upsert_robot_telemetry(serial, ip_address=req.client_address[0], touch_seen=True)
     logger.info("Robot %s connected", serial)
@@ -49,16 +60,25 @@ def nucleo_init(req: RouterHandler) -> None:
     refresh_gen3_telemetry_async(serial)
 
     try:
-        while True:
-            data = req.rfile.readline()
+        while not conn.stop_event.is_set():
+            try:
+                data = req.rfile.readline()
+            except (TimeoutError, socket.timeout):
+                # Idle on dock or in Wi-Fi power-save: ping with heartbeat chunk
+                try:
+                    send_chunk(req.wfile, build_heartbeat())
+                except Exception as e:
+                    logger.warning("Robot %s heartbeat ping failed: %s", serial, e)
+                    break
+                continue
+
             if not data:
                 break
             robot_data(serial, data)
-    except TimeoutError:
-        logger.warning("Robot %s read timed out after 180s", serial)
     except Exception as e:
         logger.error("Robot %s connection error: %s", serial, e)
     finally:
+        conn.stop_event.set()
         reset_robot_buffer(serial)
         if robot_connections.get(serial) is conn:
             del robot_connections[serial]

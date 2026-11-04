@@ -212,3 +212,25 @@ def test_handle_robot_stream_processing():
 
     gen4_init.handle_robot(mock_sock, ("192.168.1.188", 54321))
     assert mock_sock.closed is True
+
+
+def test_gen4_reconnect_teardown_race():
+    serial = "2126LB01A14101917"
+
+    sock_old = MockSocket(struct.pack(">I", 1) + b"\x00")
+    rc_old = RobotConn(serial, Generation.GEN4, Gen4Conn(sock_old))
+    robot_connections[serial] = rc_old
+
+    # New connection comes in
+    sock_new = MockSocket()
+    rc_new = RobotConn(serial, Generation.GEN4, Gen4Conn(sock_new))
+    robot_connections[serial] = rc_new
+
+    # Simulate teardown of rc_old
+    rc_old.stop_event.set()
+    if robot_connections.get(rc_old.serial) is rc_old:
+        robot_connections.pop(rc_old.serial, None)
+
+    # Verify new connection was NOT popped
+    assert robot_connections.get(serial) is rc_new
+    assert robot_connections[serial] is rc_new
