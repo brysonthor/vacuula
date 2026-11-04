@@ -136,7 +136,7 @@ export function drawMap(
             const cx = ox + x * scale + scale / 2
             const cy = oy + y * scale + scale / 2
 
-            if (floorValue !== 0) {
+            if (floorValue !== undefined && floorValue !== 0) {
                 const isWall = floorValue !== 1
                 ctx.fillStyle = isWall ? COLORS.WALL : COLORS.EMPTY
                 ctx.save()
@@ -147,7 +147,7 @@ export function drawMap(
 
             if (hasRun) {
                 const runValue = runCells![idx]
-                if (runValue !== 0 && !ignoreRunValues?.has(runValue)) {
+                if (runValue !== undefined && runValue !== 0 && !ignoreRunValues?.has(runValue)) {
                     ctx.save()
                     ctx.globalAlpha = runOpacity
                     ctx.fillStyle = getRunColor(runValue)

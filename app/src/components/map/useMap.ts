@@ -47,7 +47,9 @@ export function useMap({
     const runIgnoreSetRef = useRef<Set<number>>(new Set())
     const userInteractedRef = useRef(false)
     const extraDrawRef = useRef(extraDraw)
-    extraDrawRef.current = extraDraw
+    useEffect(() => {
+        extraDrawRef.current = extraDraw
+    }, [extraDraw])
 
     const [mapSize, setMapSize] = useState<MapSize>()
 
@@ -57,7 +59,7 @@ export function useMap({
         zoom, offset, isDragging, hasMoved,
         handleMouseDown, handleMouseMove, handleMouseUp, handleWheel,
         handleTouchStart, handleTouchMove, handleTouchEnd,
-        centerView, setZoom, setOffset
+        setZoom, setOffset
     } = useCanvasViewport({ initialZoom: 4, initialOffset: { x: 0, y: 0 } })
 
     const draw = useCallback((currentZoom: number = zoom, currentOffset: Offset = offset) => {
@@ -74,7 +76,7 @@ export function useMap({
         )
 
         extraDrawRef.current?.(ctx, canvas, currentZoom, currentOffset, mapSize)
-    }, [mapSize, shape, backgroundToken])
+    }, [zoom, offset, mapSize, shape, backgroundToken])
 
     const onMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
         userInteractedRef.current = true
@@ -110,16 +112,26 @@ export function useMap({
             runCellsRef.current,
             runIgnoreSetRef.current
         )
-        if (fit) {
-            setZoom(fit.zoom)
-            setOffset(fit.offset)
-        } else {
-            centerView(ms.width, ms.height, 4, width, height)
+        const targetZoom = fit ? fit.zoom : 4
+        const targetOffset = fit ? fit.offset : {
+            x: (width - ms.width * 4) / 2,
+            y: (height - ms.height * 4) / 2
         }
-    }, [mapSize, centerView, setZoom, setOffset])
+        setZoom(targetZoom)
+        setOffset(targetOffset)
+        draw(targetZoom, targetOffset)
+    }, [mapSize, setZoom, setOffset, draw])
 
     const { data: persistantMapData, refresh: updatePersistantMapData } = usePersistentMap(mapId);
     const { data: cleaningData, refresh: updateCleaningData } = useCleaning(runId ?? '');
+
+    // Reset interaction state and cells when switching mapId or runId
+    useEffect(() => {
+        userInteractedRef.current = false
+        cellsRef.current = null
+        runCellsRef.current = null
+        runIgnoreSetRef.current = new Set()
+    }, [mapId, runId])
 
     useEffect(() => {
         updatePersistantMapData();
@@ -139,8 +151,10 @@ export function useMap({
         setMapSize(newMapSize)
         if (fitOnLoad && !userInteractedRef.current) {
             fitView(newMapSize, cellsRef.current)
+        } else {
+            draw()
         }
-    }, [persistantMapData, fitOnLoad, fitView])
+    }, [persistantMapData, fitOnLoad, fitView, draw])
 
     useEffect(() => {
         if (!cleaningData) return;
@@ -149,8 +163,9 @@ export function useMap({
         runIgnoreSetRef.current = computeIgnoredRunValues(runCellsRef.current, robot.type === RobotType.NeatoGen4 ? 1 : 2);
         if (fitOnLoad && !userInteractedRef.current && cellsRef.current && mapSize) {
             fitView()
+        } else {
+            draw()
         }
-        draw()
     }, [cleaningData, robot.type, fitOnLoad, mapSize, fitView, draw])
 
     // Redraw on viewport change, or when caller's overlay-relevant state changes
@@ -184,11 +199,6 @@ export function useMap({
         ro.observe(parent)
         return () => ro.disconnect()
     }, [mapSize, fitOnLoad, fitView, draw])
-
-    // Selecting a different map should auto-fit, not inherit the previous map's pan/zoom.
-    useEffect(() => {
-        userInteractedRef.current = false
-    }, [mapId])
 
     const resetView = useCallback(() => {
         userInteractedRef.current = false

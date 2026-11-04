@@ -275,7 +275,7 @@ export default function Runs() {
                 </div>
 
                 <div className={styles.runMapBox}>
-                    <Map mapId={cleaning.id} runId={cleaning.id} />
+                    <Map key={cleaning.id} mapId={cleaning.id} runId={cleaning.id} />
                 </div>
 
                 {/* Path Coverage Color Legend */}

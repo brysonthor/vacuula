@@ -143,8 +143,10 @@ export function getMapContentBounds(
         const row = y * mapSize.width
         for (let x = 0; x < mapSize.width; x++) {
             const idx = row + x
-            const isFloorOrWall = cells[idx] !== 0
-            const isRun = hasRun && runCells![idx] !== 0 && !ignoreRunValues?.has(runCells![idx])
+            const cellVal = cells[idx]
+            const isFloorOrWall = cellVal !== undefined && cellVal !== 0
+            const runVal = hasRun ? runCells![idx] : undefined
+            const isRun = runVal !== undefined && runVal !== 0 && !ignoreRunValues?.has(runVal)
             if (isFloorOrWall || isRun) {
                 if (x < minX) minX = x
                 if (x > maxX) maxX = x
