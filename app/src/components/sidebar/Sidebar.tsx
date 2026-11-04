@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { matchPath, NavLink, useLocation } from 'react-router'
+import { matchPath, NavLink, useLocation, useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import {
     IoBarChartOutline,
@@ -30,6 +30,7 @@ export default function Sidebar() {
     const { robots, serverInfo } = useApp()
     const { mascot } = useMascot()
     const location = useLocation()
+    const navigate = useNavigate()
 
     const [collapsed, setCollapsed] = useState<boolean>(() => {
         return localStorage.getItem(STORAGE_KEY) === 'true'
@@ -62,6 +63,10 @@ export default function Sidebar() {
                     to="/"
                     className={styles.brandBtn}
                     title="Vacuula"
+                    onClick={(e) => {
+                        e.preventDefault()
+                        navigate('/')
+                    }}
                 >
                     <img src={mascot.src} alt="" className={styles.brandLogo} />
                     {!collapsed ? (
@@ -96,6 +101,10 @@ export default function Sidebar() {
                         end
                         className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}
                         title={t('nav.fleetOverview', 'Fleet Overview')}
+                        onClick={(e) => {
+                            e.preventDefault()
+                            navigate('/')
+                        }}
                     >
                         <TbLayoutGrid size={20} className={styles.navIcon} />
                         {!collapsed && <span className={styles.navText}>{t('nav.fleetOverview', 'Fleet Overview')}</span>}
@@ -121,6 +130,10 @@ export default function Sidebar() {
                                         to={targetPath}
                                         className={`${styles.robotRow} ${isCurrent ? styles.robotRowActive : ''}`}
                                         title={`${info.name} (${info.connected ? t('common.online', 'Online') : t('common.offline', 'Offline')})`}
+                                        onClick={(e) => {
+                                            e.preventDefault()
+                                            navigate(targetPath)
+                                        }}
                                     >
                                         <span
                                             className={`${styles.statusDot} ${
