@@ -138,7 +138,7 @@ export default function Fleet() {
                         {t(
                             'fleet.onboardingDesc',
                             'Point your Neato Gen 3 (port {{gen3}}) or Gen 4 (port {{gen4}}) robot to this Vacuula server. It will appear here automatically as soon as it connects.',
-                            { gen3: serverInfo.gen3_port, gen4: serverInfo.gen4_port }
+                            { gen3: serverInfo?.gen3_port ?? 8080, gen4: serverInfo?.gen4_port ?? 8081 }
                         )}
                     </p>
                     <div className={styles.emptyActions}>

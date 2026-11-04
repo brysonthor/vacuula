@@ -44,20 +44,21 @@ interface AppContextType {
     getGen3State: (serial: string, name: string) => void
 }
 
-function buildOfflineRobot(serial: string, entry: QuickRobotEntry, rawLastState?: any): Robot {
+function createInitialRobot(serial: string, entry: QuickRobotEntry, rawLastState?: any): Robot {
+    const isOnline = !!entry.connected
     if (entry.type === RobotType.NeatoGen3) {
         const s = rawLastState?.data ?? rawLastState ?? {}
         return {
             type: RobotType.NeatoGen3,
             serial,
             name: entry.name,
-            online: false,
+            online: isOnline,
             availableCommands: {
-                start: false,
+                start: isOnline,
                 stop: false,
                 pause: false,
                 resume: false,
-                goToBase: false,
+                goToBase: isOnline && !entry.is_docked,
             },
             availableServices: s.availableServices,
             cleaning: s.cleaning,
@@ -84,14 +85,14 @@ function buildOfflineRobot(serial: string, entry: QuickRobotEntry, rawLastState?
         type: RobotType.NeatoGen4,
         serial,
         name: entry.name,
-        online: false,
+        online: isOnline,
         label_serial: entry.label_serial ?? serial,
         availableCommands: {
-            start: false,
+            start: isOnline,
             cancel: false,
             pause: false,
             resume: false,
-            return_to_base: false,
+            return_to_base: isOnline && !entry.is_docked,
         },
         details: s.details ?? {
             is_charging: !!entry.is_charging,
@@ -184,18 +185,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
             .catch((err) => {
                 console.warn('getGen3State failed, falling back to cached state:', err)
                 const entry = robotsRef.current?.[serial]
-                if (entry) setRobot(buildOfflineRobot(serial, entry, entry.last_state))
+                if (entry) setRobot(createInitialRobot(serial, entry, entry.last_state))
             })
     }, [])
 
     const connectToRobot = useCallback((robotsInfo: QuickRobotInfo, serial: string, entry: QuickRobotEntry) => {
+        // Immediately set initial robot state synchronously from quick robot info
+        // so view transitions and robot switching occur INSTANTANEOUSLY without flashing loading states.
+        const initial = createInitialRobot(serial, entry, entry.last_state)
+        setRobot(initial)
+
         if (!entry.connected) {
-            setRobot(buildOfflineRobot(serial, entry, entry.last_state))
             Http.getRobotTelemetry(serial, false)
                 .then(res => {
                     if (res.data?.last_state && Object.keys(res.data.last_state).length > 0) {
                         setRobot(cur => (cur && cur.serial === serial && !cur.online)
-                            ? buildOfflineRobot(serial, entry, res.data.last_state)
+                            ? createInitialRobot(serial, entry, res.data.last_state)
                             : cur
                         )
                     }
@@ -227,7 +232,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 })
                 .catch((err) => {
                     console.warn('Gen4 getRobotState failed, falling back to cached state:', err)
-                    setRobot(buildOfflineRobot(serial, entry, entry.last_state))
+                    setRobot(createInitialRobot(serial, entry, entry.last_state))
                 })
         }
     }, [getGen3State, refreshZoneQueue])

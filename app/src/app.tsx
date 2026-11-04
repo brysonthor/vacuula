@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Navigate, Outlet, Route, Routes, useParams } from 'react-router'
+import { Navigate, Outlet, Route, Routes, useLocation, useParams } from 'react-router'
 import { IoCloudOfflineOutline } from 'react-icons/io5'
 import AppLoadingIndicator from './components/appLoadingIndicator/appLoadingIndicator'
 import { useIsDesktop } from './components/hooks/useMediaQuery'
@@ -87,6 +87,7 @@ function LegacyRobotRedirect({ subpath }: { subpath: string }) {
 
 const App = () => {
     const isDesktop = useIsDesktop()
+    const location = useLocation()
 
     return (
         <div className={styles.app}>
@@ -101,17 +102,9 @@ const App = () => {
             )}
 
             <main className={styles.mainArea}>
-                <Routes>
+                <Routes location={location} key={location.pathname}>
                     <Route
                         path="/"
-                        element={
-                            <div className={styles.workspace}>
-                                <Fleet />
-                            </div>
-                        }
-                    />
-                    <Route
-                        index
                         element={
                             <div className={styles.workspace}>
                                 <Fleet />

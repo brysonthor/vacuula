@@ -58,6 +58,7 @@ vi.mock('./http', () => ({
             },
         }),
         getBoundaries: vi.fn().mockResolvedValue({ data: [] }),
+        getPersistentMaps: vi.fn().mockResolvedValue({ data: [] }),
         getCleanings: vi.fn().mockResolvedValue({ data: [] }),
         driveStatus: vi.fn().mockResolvedValue({ data: { connected: false } }),
         getZoneQueue: vi.fn().mockResolvedValue({ data: { queue: null } }),

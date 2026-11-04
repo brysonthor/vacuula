@@ -86,6 +86,7 @@ export default function Sidebar() {
                     <NavLink
                         to="/"
                         end
+                        onClick={() => navigate('/')}
                         className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}
                         title={t('nav.fleetOverview', 'Fleet Overview')}
                     >
