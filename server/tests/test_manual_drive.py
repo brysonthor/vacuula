@@ -216,3 +216,64 @@ def test_drive_session_loops():
     sess._rx_loop()
 
 
+def test_ws_client_auth_handshake_and_buffer():
+    from vacuula_server.manual_drive import _SimpleWSClient
+    import io
+
+    sent_data = bytearray()
+    payload = b'{"status": "ready"}'
+    frame = bytes([0x81, len(payload)]) + payload
+    handshake = (
+        b"HTTP/1.1 101 Switching Protocols\r\n"
+        b"Upgrade: websocket\r\n"
+        b"Connection: Upgrade\r\n\r\n" + frame
+    )
+    mock_sock = MagicMock()
+
+    def mock_sendall(data):
+        sent_data.extend(data)
+
+    mock_sock.sendall.side_effect = mock_sendall
+    mock_sock.recv.side_effect = [handshake, b""]
+
+    with patch("socket.create_connection", return_value=mock_sock):
+        client = _SimpleWSClient(
+            "192.168.0.223",
+            8081,
+            serial="OPS42417-7c38660f057e",
+            secret="test_secret_key",
+        )
+        assert client.connected is True
+        sent_str = sent_data.decode("latin1", errors="replace")
+        assert "Authorization: NEATOAPP " in sent_str
+        assert "Date: " in sent_str
+        assert "Origin: ws://192.168.0.223:8081/drive" in sent_str
+        assert client.initial_message == {"status": "ready"}
+        client.close()
+
+
+def test_ws_client_auth_rejection():
+    from vacuula_server.manual_drive import _SimpleWSClient
+
+    payload = b'{"message" : "invalid authorization header"}'
+    frame = bytes([0x81, len(payload)]) + payload
+    handshake = (
+        b"HTTP/1.1 101 Switching Protocols\r\n"
+        b"Upgrade: websocket\r\n"
+        b"Connection: Upgrade\r\n\r\n" + frame
+    )
+    mock_sock = MagicMock()
+    mock_sock.recv.side_effect = [handshake, b""]
+
+    with patch("socket.create_connection", return_value=mock_sock):
+        with pytest.raises(PermissionError) as exc_info:
+            _SimpleWSClient(
+                "192.168.0.223",
+                8081,
+                serial="OPS42417-7c38660f057e",
+                secret="bad_secret",
+            )
+        assert "rejected manual drive authorization" in str(exc_info.value)
+
+
+

@@ -1,17 +1,22 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 import json
 import logging
 import os
+import select
 import socket
 import struct
 import threading
 import time
 from contextlib import suppress
+from datetime import datetime, timezone
 from typing import Any
 
 from vacuula_server.fork_db import get_robot_telemetry
+from vacuula_server.generation import get_gen3_robot_data
 from vacuula_server.orchestrator import send_robot_command_sync
 from vacuula_server.state import robot_connections
 
@@ -44,25 +49,55 @@ VALID_COMMANDS = {
 class _SimpleWSClient:
     """Minimal RFC 6455 client socket for LAN robot manual drive."""
 
-    def __init__(self, host: str, port: int, path: str = "/drive", timeout: float = 8.0) -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        path: str = "/drive",
+        serial: str | None = None,
+        secret: str | None = None,
+        timeout: float = 8.0,
+    ) -> None:
         self.host = host
         self.port = port
         self.path = path
+        self.serial = serial
+        self.secret = secret
         self.sock: socket.socket | None = None
         self._send_lock = threading.Lock()
         self.connected = False
+        self._rx_buf = bytearray()
+        self.initial_message: dict[str, Any] | None = None
         self._connect(timeout)
 
     def _connect(self, timeout: float) -> None:
         sock = socket.create_connection((self.host, self.port), timeout=timeout)
         key = base64.b64encode(os.urandom(16)).decode("ascii")
+
+        extra_headers = ""
+        if self.serial and self.secret:
+            # Neato Botvac Connected RFC 822 GMT date signature
+            date_str = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
+            payload = f"{self.serial.lower()}\n{date_str}\n"
+            signature = hmac.new(
+                self.secret.encode("utf-8"),
+                payload.encode("utf-8"),
+                hashlib.sha256,
+            ).hexdigest()
+            extra_headers = (
+                f"Date: {date_str}\r\n"
+                f"Authorization: NEATOAPP {signature}\r\n"
+                f"Origin: ws://{self.host}:{self.port}{self.path}\r\n"
+            )
+
         handshake = (
             f"GET {self.path} HTTP/1.1\r\n"
             f"Host: {self.host}:{self.port}\r\n"
             "Upgrade: websocket\r\n"
             "Connection: Upgrade\r\n"
             f"Sec-WebSocket-Key: {key}\r\n"
-            "Sec-WebSocket-Version: 13\r\n\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            f"{extra_headers}\r\n"
         )
         sock.sendall(handshake.encode("ascii"))
 
@@ -77,14 +112,40 @@ class _SimpleWSClient:
                 sock.close()
                 raise ConnectionError("Oversized WebSocket handshake header")
 
-        header_line = buf.split(b"\r\n", 1)[0].decode("latin1", errors="replace")
+        header_bytes, rest = buf.split(b"\r\n\r\n", 1)
+        header_line = header_bytes.split(b"\r\n", 1)[0].decode("latin1", errors="replace")
         if "101" not in header_line:
             sock.close()
             raise ConnectionError(f"WebSocket upgrade rejected: {header_line}")
 
+        if rest:
+            self._rx_buf.extend(rest)
+
         sock.settimeout(2.0)
         self.sock = sock
         self.connected = True
+
+        # Check if robot sent an immediate frame (e.g. auth status or error)
+        has_data = bool(self._rx_buf)
+        if not has_data and self.sock:
+            with suppress(Exception):
+                r, _, _ = select.select([self.sock], [], [], 0.15)
+                has_data = bool(r)
+
+        if has_data:
+            frame = self.recv_frame()
+            if frame is not None:
+                opcode, payload_bytes = frame
+                if opcode == 0x1 and payload_bytes:
+                    msg: Any = None
+                    with suppress(Exception):
+                        msg = json.loads(payload_bytes.decode("utf-8", errors="replace"))
+                    if isinstance(msg, dict):
+                        self.initial_message = msg
+                        msg_text = str(msg.get("message") or msg.get("error") or "").lower()
+                        if "invalid authorization" in msg_text or "unauthorized" in msg_text:
+                            self.close()
+                            raise PermissionError(f"Robot rejected manual drive authorization ({msg.get('message')})")
 
     def send_text(self, text: str) -> None:
         if not self.sock or not self.connected:
@@ -158,8 +219,17 @@ class _SimpleWSClient:
     def _recv_exact(self, n: int) -> bytes:
         assert self.sock is not None
         out = bytearray()
+        if self._rx_buf:
+            take = min(n, len(self._rx_buf))
+            out.extend(self._rx_buf[:take])
+            del self._rx_buf[:take]
         while len(out) < n:
-            chunk = self.sock.recv(n - len(out))
+            try:
+                chunk = self.sock.recv(n - len(out))
+            except TimeoutError:
+                if out:
+                    self._rx_buf = out + self._rx_buf
+                raise
             if not chunk:
                 return b""
             out.extend(chunk)
@@ -187,7 +257,7 @@ class _DriveSession:
         self.active_combo: str = "stop"
         self.last_motion_ts: float = time.monotonic()
         self.last_ui_ts: float = time.monotonic()
-        self.last_robot_message: dict[str, Any] | None = None
+        self.last_robot_message: dict[str, Any] | None = getattr(ws, "initial_message", None)
         self.vacuum_on: bool = False
         self.brush_on: bool = False
         self.eco_on: bool = True
@@ -282,6 +352,11 @@ class _DriveSession:
                     if isinstance(msg, dict):
                         with self._lock:
                             self.last_robot_message = msg
+                        msg_text = str(msg.get("message") or msg.get("error") or "").lower()
+                        if "invalid authorization" in msg_text or "unauthorized" in msg_text:
+                            logger.error("Robot %s rejected authorization during manual drive: %s", self.serial, msg)
+                            self.shutdown()
+                            return
         self.shutdown()
 
     def status_dict(self) -> dict[str, Any]:
@@ -344,6 +419,13 @@ def drive_start(serial: str) -> tuple[int, dict[str, Any]]:
     if not ip or port <= 0:
         return 502, {"error": "Robot did not provide valid LAN WebSocket address"}
 
+    gen3_data = get_gen3_robot_data(serial)
+    secret = gen3_data.password if gen3_data else ""
+    if not secret:
+        conn = robot_connections.get(serial)
+        if conn and hasattr(conn, "conn") and hasattr(conn.conn, "password"):
+            secret = conn.conn.password or ""
+
     # Robot often needs ~0.5s after getRobotManualCleaningInfo to spin up its WS listener
     last_err: Exception | None = None
     ws: _SimpleWSClient | None = None
@@ -351,10 +433,12 @@ def drive_start(serial: str) -> tuple[int, dict[str, Any]]:
         if attempt > 0:
             time.sleep(0.6)
         try:
-            ws = _SimpleWSClient(ip, port, path="/drive", timeout=6.0)
+            ws = _SimpleWSClient(ip, port, path="/drive", serial=serial, secret=secret, timeout=6.0)
             break
         except Exception as e:
             last_err = e
+            if isinstance(e, PermissionError):
+                return 502, {"error": str(e)}
 
     if ws is None:
         return 502, {

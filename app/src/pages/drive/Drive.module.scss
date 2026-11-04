@@ -116,6 +116,16 @@
     font-weight: 500;
 }
 
+.infoBanner {
+    padding: 1.1rem 1.4rem;
+    border-radius: 1rem;
+    background: $surface-neutral-2;
+    border: 1px solid $border;
+    color: $text-primary;
+    font-size: 1.25rem;
+    font-weight: 500;
+}
+
 .layout {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 38rem), 1fr));

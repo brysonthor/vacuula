@@ -247,6 +247,15 @@ export default function Drive() {
         onPointerCancel: () => stopMotion(),
     })
 
+    const robotMessage = status.robot_message
+        ? typeof status.robot_message === 'string'
+            ? status.robot_message
+            : status.robot_message.error ||
+              status.robot_message.alert ||
+              status.robot_message.message ||
+              null
+        : null
+
     return (
         <div className={styles.page}>
             <header className={styles.header}>
@@ -307,6 +316,11 @@ export default function Drive() {
             </header>
 
             {error && <div className={styles.errorBanner}>{error}</div>}
+            {robotMessage && !error && (
+                <div className={styles.infoBanner}>
+                    <strong>Robot Telemetry:</strong> {String(robotMessage)}
+                </div>
+            )}
 
             <div className={styles.layout}>
                 {/* Motion Pad */}
