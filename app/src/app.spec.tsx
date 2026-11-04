@@ -17,6 +17,16 @@ const { mockRobotData } = vi.hoisted(() => {
                 is_docked: true,
                 state_label: 'idle',
             },
+            '2126LB01A14101917': {
+                serial: '2126LB01A14101917',
+                name: "Loki's Low-Level Lackey",
+                type: 1, // RobotType.NeatoGen4
+                connected: true,
+                charge: 99,
+                is_charging: false,
+                is_docked: true,
+                state_label: 'idle',
+            },
         },
     }
 })
@@ -27,6 +37,10 @@ vi.mock('react-i18next', async (importOriginal) => {
         ...actual,
         useTranslation: () => ({
             t: (key: string, fallback?: string) => fallback || key,
+            i18n: {
+                resolvedLanguage: 'en',
+                changeLanguage: vi.fn(),
+            },
         }),
     }
 })
@@ -63,6 +77,7 @@ vi.mock('./http', () => ({
         driveStatus: vi.fn().mockResolvedValue({ data: { connected: false } }),
         getZoneQueue: vi.fn().mockResolvedValue({ data: { queue: null } }),
         getRobotTelemetry: vi.fn().mockResolvedValue({ data: {} }),
+        getNotificationSettings: vi.fn().mockResolvedValue({ data: {} }),
         setLoadingStateCallback: vi.fn(),
     },
 }))
@@ -77,6 +92,21 @@ vi.mock('./http/gen3', () => ({
                 details: { charge: 97, isCharging: false, isDocked: true },
                 state: 1,
                 action: 0,
+            },
+        }),
+    },
+}))
+
+vi.mock('./http/gen4', () => ({
+    GEN4_COMMANDS: {
+        getRobotState: vi.fn().mockResolvedValue({
+            data: {
+                body: {
+                    available_commands: { start: true, cancel: false, pause: false, resume: false, return_to_base: false },
+                    details: { charge: 99, is_charging: false, is_docked: true },
+                    state: 1,
+                    action: 0,
+                },
             },
         }),
     },
@@ -164,5 +194,48 @@ describe('App Route State Changes', () => {
             expect(screen.getByText('Live status, quick actions, and diagnostics across your Vacuula server.')).toBeDefined()
         })
         expect(screen.queryByText('Command Center')).toBeNull()
+    })
+
+    it('makes the url state the sole source of truth for sidebar robot selection', async () => {
+        render(
+            <AppProvider>
+                <MemoryRouter initialEntries={['/robot/OPS42417-7c38660f057e']}>
+                    <App />
+                </MemoryRouter>
+            </AppProvider>
+        )
+
+        // Wait for Sparkles workspace to load
+        await waitFor(() => {
+            expect(screen.getAllByText('Command Center').length).toBeGreaterThan(0)
+        })
+
+        const sparklesRow = screen.getByTitle('Sparkles (Online)')
+        const lokiRow = screen.getByTitle("Loki's Low-Level Lackey (Online)")
+
+        // Sparkles row is active, Loki is not
+        expect(sparklesRow.className).toContain('robotRowActive')
+        expect(lokiRow.className).not.toContain('robotRowActive')
+        expect(screen.getAllByText('Sparkles').length).toBeGreaterThan(0)
+
+        // Switch to Loki via sidebar NavLink
+        fireEvent.click(lokiRow)
+
+        // URL changes to Loki, sidebar reacts: Loki row becomes active, Sparkles is inactive
+        await waitFor(() => {
+            expect(lokiRow.className).toContain('robotRowActive')
+            expect(sparklesRow.className).not.toContain('robotRowActive')
+            expect(screen.getAllByText("Loki's Low-Level Lackey").length).toBeGreaterThan(0)
+        })
+
+        // Navigate to settings route: neither robot should be active in the sidebar
+        const settingsNav = screen.getByTitle('App & Server Settings')
+        fireEvent.click(settingsNav)
+
+        await waitFor(() => {
+            expect(sparklesRow.className).not.toContain('robotRowActive')
+            expect(lokiRow.className).not.toContain('robotRowActive')
+            expect(screen.queryByText('Command Center')).toBeNull()
+        })
     })
 })

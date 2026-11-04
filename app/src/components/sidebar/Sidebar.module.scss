@@ -45,6 +45,7 @@
     border-radius: 1rem;
     color: $text-primary;
     min-width: 0;
+    text-decoration: none;
 
     &:hover {
         background: $surface-hover;
@@ -207,6 +208,7 @@
     background: transparent;
     border: 1px solid transparent;
     color: $text-primary;
+    text-decoration: none;
     transition: background-color 0.15s, border-color 0.15s;
 
     .collapsed & {

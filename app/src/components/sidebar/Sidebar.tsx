@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, useLocation, useNavigate } from 'react-router'
+import { matchPath, NavLink, useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import {
     IoBarChartOutline,
@@ -27,9 +27,8 @@ const STORAGE_KEY = 'vacuula.sidebarCollapsed'
 
 export default function Sidebar() {
     const { t } = useTranslation()
-    const { robots, selectRobot, serverInfo } = useApp()
+    const { robots, serverInfo } = useApp()
     const { mascot } = useMascot()
-    const navigate = useNavigate()
     const location = useLocation()
 
     const [collapsed, setCollapsed] = useState<boolean>(() => {
@@ -45,20 +44,23 @@ export default function Sidebar() {
     }
 
     const robotEntries = Object.entries(robots ?? {})
-    const activeRobotMatch = location.pathname.match(/^\/robot\/([^/]+)/)
-    const activeSerial = activeRobotMatch ? decodeURIComponent(activeRobotMatch[1]) : undefined
+    const robotMatch = matchPath({ path: '/robot/:serial', end: false }, location.pathname)
+    const activeSerial = robotMatch?.params.serial ? decodeURIComponent(robotMatch.params.serial) : undefined
     const activeEntry = activeSerial && robots ? robots[activeSerial] : undefined
     const encodedSerial = activeSerial ? encodeURIComponent(activeSerial) : ''
+
+    const subMatch = location.pathname.match(/^\/robot\/[^/]+(\/.*)?$/)
+    const sub = subMatch?.[1] ?? ''
+    const cleanSub = sub === '/' ? '' : sub
 
     const showDrive = activeEntry?.type === RobotType.NeatoGen3
 
     return (
         <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>
             <div className={styles.brandRow}>
-                <button
-                    type="button"
+                <NavLink
+                    to="/"
                     className={styles.brandBtn}
-                    onClick={() => navigate('/')}
                     title="Vacuula"
                 >
                     <img src={mascot.src} alt="" className={styles.brandLogo} />
@@ -73,7 +75,7 @@ export default function Sidebar() {
                     ) : (
                         <HeaderLoadingSpinner size={14} />
                     )}
-                </button>
+                </NavLink>
                 <button
                     type="button"
                     className={styles.collapseBtn}
@@ -92,7 +94,6 @@ export default function Sidebar() {
                     <NavLink
                         to="/"
                         end
-                        onClick={() => navigate('/')}
                         className={({ isActive }) => `${styles.navItem} ${isActive ? styles.active : ''}`}
                         title={t('nav.fleetOverview', 'Fleet Overview')}
                     >
@@ -110,21 +111,16 @@ export default function Sidebar() {
                         {!collapsed && <div className={styles.sectionLabel}>{t('nav.robots', 'Robots')}</div>}
                         <div className={styles.robotList}>
                             {robotEntries.map(([serial, info]) => {
-                                const isCurrent = location.pathname.startsWith(`/robot/${encodeURIComponent(serial)}`)
+                                const isCurrent = activeSerial === serial
+                                const safeSub = cleanSub === '/drive' && info.type !== RobotType.NeatoGen3 ? '' : cleanSub
+                                const targetPath = `/robot/${encodeURIComponent(serial)}${safeSub}`
+
                                 return (
-                                    <button
+                                    <NavLink
                                         key={serial}
-                                        type="button"
+                                        to={targetPath}
                                         className={`${styles.robotRow} ${isCurrent ? styles.robotRowActive : ''}`}
                                         title={`${info.name} (${info.connected ? t('common.online', 'Online') : t('common.offline', 'Offline')})`}
-                                        onClick={() => {
-                                            selectRobot(serial)
-                                            const subMatch = location.pathname.match(/^\/robot\/[^/]+(\/.*)?$/)
-                                            const sub = subMatch?.[1] ?? ''
-                                            // Avoid carrying Gen 3 /drive onto a Gen 4 robot
-                                            const safeSub = sub === '/drive' && info.type !== RobotType.NeatoGen3 ? '' : sub
-                                            navigate(`/robot/${encodeURIComponent(serial)}${safeSub}`)
-                                        }}
                                     >
                                         <span
                                             className={`${styles.statusDot} ${
@@ -155,7 +151,7 @@ export default function Sidebar() {
                                                 </div>
                                             </>
                                         )}
-                                    </button>
+                                    </NavLink>
                                 )
                             })}
                         </div>
