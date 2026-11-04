@@ -34,14 +34,14 @@ export const basicStateIcons: Record<BasicState, IconType> = {
 }
 
 export function isDocked(robot: Robot) {
-    if (robot.type === RobotType.NeatoGen3) return robot.details.isDocked
-    if (robot.type === RobotType.NeatoGen4) return robot.details.is_docked
+    if (robot.type === RobotType.NeatoGen3) return !!robot.details?.isDocked
+    if (robot.type === RobotType.NeatoGen4) return !!robot.details?.is_docked
     return false
 }
 
 export function isCharging(robot: Robot) {
-    if (robot.type === RobotType.NeatoGen3) return robot.details.isCharging
-    if (robot.type === RobotType.NeatoGen4) return robot.details.is_charging
+    if (robot.type === RobotType.NeatoGen3) return !!robot.details?.isCharging
+    if (robot.type === RobotType.NeatoGen4) return !!robot.details?.is_charging
     return false
 }
 

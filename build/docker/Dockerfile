@@ -4,9 +4,10 @@ FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend
 WORKDIR /app
 
 RUN corepack enable
+ENV CYPRESS_INSTALL_BINARY=0
 
-COPY app/package.json app/pnpm-lock.yaml ./
-RUN pnpm approve-builds @parcel/watcher
+COPY app/package.json app/pnpm-lock.yaml app/pnpm-workspace.yaml* ./
+RUN pnpm approve-builds @parcel/watcher cypress
 RUN pnpm install --frozen-lockfile
 
 COPY app/ ./
