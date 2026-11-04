@@ -1,5 +1,6 @@
 import { createContext, useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { matchPath, useLocation, useNavigate } from 'react-router'
 import { BASE_PATH, Http, type LoadingState, type ServerInfo } from '../http'
 import { GEN3_COMMANDS } from '../http/gen3'
 import type { UseState } from '../components/map/types'
@@ -111,6 +112,8 @@ function createInitialRobot(serial: string, entry: QuickRobotEntry, rawLastState
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
 export function AppProvider({ children }: { children: ReactNode }) {
+    const location = useLocation()
+    const navigate = useNavigate()
     const [robot, setRobot] = useState<Robot>()
     const [robots, setRobots] = useState<QuickRobotInfo>()
     const [lastHeartbeat, setLastHeartbeat] = useState<number | undefined>()
@@ -243,16 +246,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
     }, [getGen3State, refreshZoneQueue])
 
+    const robotMatch = matchPath({ path: '/robot/:serial', end: false }, location.pathname)
+    const activeSerial = robotMatch?.params.serial ? decodeURIComponent(robotMatch.params.serial) : undefined
+
     const selectRobot = useCallback((serial: string) => {
-        const currentRobots = robotsRef.current
-        const target = currentRobots?.[serial]
-        if (!currentRobots || !target) return
-        if (robotRef.current?.serial === serial && robotRef.current?.online === target.connected) {
+        navigate(`/robot/${encodeURIComponent(serial)}`)
+    }, [navigate])
+
+    // React strictly to the URL route as single source of truth for active robot
+    useEffect(() => {
+        if (!robots) return
+        if (!activeSerial) {
+            if (robotRef.current) setRobot(undefined)
             return
         }
-        localStorage.setItem('vacuula.selectedRobot', serial)
-        connectToRobot(currentRobots, serial, target)
-    }, [connectToRobot])
+        const target = robots[activeSerial]
+        if (!target) {
+            if (robotRef.current) setRobot(undefined)
+            return
+        }
+        if (robotRef.current?.serial === activeSerial && robotRef.current?.online === target.connected && robotRef.current?.name === target.name) {
+            return
+        }
+        connectToRobot(robots, activeSerial, target)
+    }, [activeSerial, robots, connectToRobot])
 
     const refreshRobots = useCallback(async () => {
         setIsSyncing(true)
@@ -296,50 +313,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
         persistentMapsLoader.request(robot.serial).catch(err => console.error('Failed to fetch floorplans', err))
     }, [robot?.serial, robot?.type])
 
-    // get robots, connect to preferred one (online or offline), then subscribe to updates
+    // get robots, then subscribe to updates
     useEffect(() => {
-        const autoPickRobot = (data: QuickRobotInfo) => {
-            if (robotRef.current) return
-            const last = localStorage.getItem('vacuula.selectedRobot')
-            const entries = Object.entries(data)
-            if (entries.length === 0) return
-            // Check if URL explicitly points to /robot/:serial
-            const urlMatch = window.location.pathname.match(/\/robot\/([^/]+)/)
-            const urlSerial = urlMatch ? decodeURIComponent(urlMatch[1]) : null
-
-            const chosen =
-                (urlSerial && data[urlSerial] ? [urlSerial, data[urlSerial]] as const : undefined) ??
-                entries.find(([s, info]) => s === last && info.connected) ??
-                entries.find(([, info]) => info.connected) ??
-                entries.find(([s]) => s === last) ??
-                entries[0]
-
-            if (chosen) {
-                connectToRobot(data, chosen[0], chosen[1])
-            }
-        }
-
         Http.getRobots().then((res) => {
             setRobots(res.data)
-            autoPickRobot(res.data)
         })
 
         const events = new EventSource(`${BASE_PATH}/api/events`)
         events.addEventListener('robots', (event) => {
-            const data = JSON.parse(event.data) as QuickRobotInfo
-            setRobots(data)
-
-            const cur = robotRef.current
-            if (cur) {
-                const updatedEntry = data[cur.serial]
-                if (!updatedEntry) {
-                    setRobot(undefined)
-                } else if (updatedEntry.connected !== cur.online) {
-                    connectToRobot(data, cur.serial, updatedEntry)
-                }
-                return
+            try {
+                const data = JSON.parse(event.data) as QuickRobotInfo
+                setRobots(data)
+            } catch {
+                // ignore malformed SSE
             }
-            autoPickRobot(data)
         })
 
         events.addEventListener('queue', (event) => {
@@ -355,7 +342,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         events.onerror = (err) => console.error('events stream error:', err)
         return () => events.close()
-    }, [connectToRobot])
+    }, [])
 
     useEffect(() => {
         if (!robot || !robot.online) return

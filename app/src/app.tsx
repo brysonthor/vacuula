@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation, useParams } from 'react-router'
 import { IoCloudOfflineOutline } from 'react-icons/io5'
 import AppLoadingIndicator from './components/appLoadingIndicator/appLoadingIndicator'
@@ -22,13 +21,7 @@ import styles from './app.module.scss'
 
 function RobotWorkspaceLayout() {
     const { serial } = useParams<{ serial: string }>()
-    const { robot, robots, selectRobot } = useApp()
-
-    useEffect(() => {
-        if (serial && robots && robots[serial] && robot?.serial !== serial) {
-            selectRobot(serial)
-        }
-    }, [serial, robots, robot?.serial, selectRobot])
+    const { robot, robots } = useApp()
 
     if (!robots) {
         return (

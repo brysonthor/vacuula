@@ -136,11 +136,11 @@ describe('App Route State Changes', () => {
 
     it('navigates from robot page to fleet overview and hides robot workspace menu in sidebar', async () => {
         render(
-            <AppProvider>
-                <MemoryRouter initialEntries={['/robot/OPS42417-7c38660f057e']}>
+            <MemoryRouter initialEntries={['/robot/OPS42417-7c38660f057e']}>
+                <AppProvider>
                     <App />
-                </MemoryRouter>
-            </AppProvider>
+                </AppProvider>
+            </MemoryRouter>
         )
 
         // Wait for robot workspace to load
@@ -163,11 +163,11 @@ describe('App Route State Changes', () => {
 
     it('navigates from fleet overview to robot and back to fleet overview', async () => {
         render(
-            <AppProvider>
-                <MemoryRouter initialEntries={['/']}>
+            <MemoryRouter initialEntries={['/']}>
+                <AppProvider>
                     <App />
-                </MemoryRouter>
-            </AppProvider>
+                </AppProvider>
+            </MemoryRouter>
         )
 
         // Initially at Fleet Overview
@@ -198,11 +198,11 @@ describe('App Route State Changes', () => {
 
     it('makes the url state the sole source of truth for sidebar robot selection', async () => {
         render(
-            <AppProvider>
-                <MemoryRouter initialEntries={['/robot/OPS42417-7c38660f057e']}>
+            <MemoryRouter initialEntries={['/robot/OPS42417-7c38660f057e']}>
+                <AppProvider>
                     <App />
-                </MemoryRouter>
-            </AppProvider>
+                </AppProvider>
+            </MemoryRouter>
         )
 
         // Wait for Sparkles workspace to load
@@ -237,5 +237,28 @@ describe('App Route State Changes', () => {
             expect(lokiRow.className).not.toContain('robotRowActive')
             expect(screen.queryByText('Command Center')).toBeNull()
         })
+    })
+
+    it('does not select any robot when on root /', async () => {
+        render(
+            <MemoryRouter initialEntries={['/']}>
+                <AppProvider>
+                    <App />
+                </AppProvider>
+            </MemoryRouter>
+        )
+
+        await waitFor(() => {
+            expect(screen.getByText('Live status, quick actions, and diagnostics across your Vacuula server.')).toBeDefined()
+        })
+
+        const sparklesRow = screen.getByTitle('Sparkles (Online)')
+        const lokiRow = screen.getByTitle("Loki's Low-Level Lackey (Online)")
+
+        // Neither robot row is active
+        expect(sparklesRow.className).not.toContain('robotRowActive')
+        expect(lokiRow.className).not.toContain('robotRowActive')
+        // No robot workspace submenu rendered
+        expect(screen.queryByText('Command Center')).toBeNull()
     })
 })
