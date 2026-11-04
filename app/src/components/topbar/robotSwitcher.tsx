@@ -4,6 +4,7 @@ import styles from './robotSwitcher.module.scss'
 import { TbChevronDown, TbLayoutGrid } from 'react-icons/tb'
 import { useApp } from '../../context/useApp'
 import { useTranslation } from 'react-i18next'
+import HeaderLoadingSpinner from '../loading/HeaderLoadingSpinner'
 
 export default function RobotSwitcher({ icon, children }: { icon?: ReactNode; children?: ReactNode }) {
     const { t } = useTranslation()
@@ -49,6 +50,7 @@ export default function RobotSwitcher({ icon, children }: { icon?: ReactNode; ch
                 {isGlobalRoute ? <TbLayoutGrid size={22} color="var(--accent)" /> : icon}
                 <span className={styles.name}>{headerLabel}</span>
                 {!isGlobalRoute && children}
+                <HeaderLoadingSpinner size={16} />
                 <TbChevronDown
                     size={14}
                     className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ''}`}

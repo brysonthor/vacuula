@@ -20,6 +20,7 @@ import { MdError } from 'react-icons/md'
 import { useApp } from '../../context/useApp'
 import { useMascot } from '../../mascot'
 import { RobotType } from '../../types'
+import HeaderLoadingSpinner from '../loading/HeaderLoadingSpinner'
 import styles from './Sidebar.module.scss'
 
 const STORAGE_KEY = 'vacuula.sidebarCollapsed'
@@ -61,11 +62,16 @@ export default function Sidebar() {
                     title="Vacuula"
                 >
                     <img src={mascot.src} alt="" className={styles.brandLogo} />
-                    {!collapsed && (
+                    {!collapsed ? (
                         <div className={styles.brandText}>
-                            <span className={styles.brandName}>Vacuula</span>
-                            <span className={styles.brandVer}>v{serverInfo.version}</span>
+                            <div className={styles.brandTitleRow}>
+                                <span className={styles.brandName}>Vacuula</span>
+                                <HeaderLoadingSpinner size={14} />
+                            </div>
+                            <span className={styles.brandVer}>v{serverInfo?.version}</span>
                         </div>
+                    ) : (
+                        <HeaderLoadingSpinner size={14} />
                     )}
                 </button>
                 <button

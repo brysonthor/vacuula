@@ -26,6 +26,7 @@ import {
     type RobotTelemetryResponse,
 } from '../../types'
 import type { UseState } from '../../components/map/types'
+import HeaderLoadingSpinner from '../../components/loading/HeaderLoadingSpinner'
 import styles from './RobotSettings.module.scss'
 
 const CONSUMABLE_LABELS: Record<string, string> = {
@@ -213,7 +214,10 @@ export default function RobotSettings() {
         <div className={styles.page}>
             <header className={styles.header}>
                 <div className={styles.titleGroup}>
-                    <h1>{t('settings.robotSettings')} — {robot.name}</h1>
+                    <h1>
+                        {t('settings.robotSettings')} — {robot.name}
+                        <HeaderLoadingSpinner size={18} />
+                    </h1>
                     <p>Hardware diagnostics, consumable lifespan tracking, onboard preferences, and maintenance.</p>
                 </div>
                 <span className={`${styles.statusPill} ${robot.online ? styles.online : styles.offline}`}>

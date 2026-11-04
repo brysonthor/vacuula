@@ -1,0 +1,24 @@
+@use '../../variables.scss' as *;
+
+.headerSpinner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: $accent;
+    flex-shrink: 0;
+    pointer-events: none;
+    line-height: 1;
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}

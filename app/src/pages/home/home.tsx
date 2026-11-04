@@ -42,6 +42,7 @@ import type { NoGoLine, Zone } from '../../components/map/types'
 import { extractBasePose } from '../../components/map/utils'
 import InteractiveFloorplan from './InteractiveFloorplan'
 import RingProgress from './RingProgress'
+import HeaderLoadingSpinner from '../../components/loading/HeaderLoadingSpinner'
 import styles from './home.module.scss'
 
 interface AlertCardProps {
@@ -943,6 +944,7 @@ export default function Home() {
                                         {Math.round(chargePct)}%
                                         {robot.online && isCharging(robot) ? ' ⚡' : ''}
                                     </span>
+                                    <HeaderLoadingSpinner size={13} />
                                 </div>
                                 {robot.online && lastHeartbeat && (
                                     <span className={styles.timeAgo}>

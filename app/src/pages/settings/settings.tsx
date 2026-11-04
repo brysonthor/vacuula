@@ -27,6 +27,7 @@ import { UNITS, useUnits, type Units } from '../../units'
 import { MASCOTS, useMascot } from '../../mascot'
 import type { NotificationSettings } from '../../types'
 import { loadSelectedMapShape, MAPSHAPES, saveSelectedMapShape } from './mapshapes'
+import HeaderLoadingSpinner from '../../components/loading/HeaderLoadingSpinner'
 import styles from './settings.module.scss'
 
 function extractErrMsg(err: unknown, fallback: string): string {
@@ -165,7 +166,10 @@ export default function Settings() {
         <div className={styles.page}>
             <header className={styles.header}>
                 <div className={styles.titleGroup}>
-                    <h1>{t('settings.appSettings')} & Server</h1>
+                    <h1>
+                        {t('settings.appSettings')} & Server
+                        <HeaderLoadingSpinner size={18} />
+                    </h1>
                     <p>Customize interface appearance, units, Discord webhook alerts, and server diagnostics.</p>
                 </div>
                 {robot && (

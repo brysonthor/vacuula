@@ -11,6 +11,7 @@ import {
 } from 'react-icons/io5'
 import { useApp } from '../../context/useApp'
 import { BASE_PATH, Http } from '../../http'
+import HeaderLoadingSpinner from '../../components/loading/HeaderLoadingSpinner'
 import styles from './Logs.module.scss'
 
 type LogLevelFilter = 'ALL' | 'ERROR' | 'WARNING' | 'INFO' | 'DEBUG'
@@ -121,7 +122,10 @@ export default function Logs() {
         <div className={styles.page}>
             <header className={styles.header}>
                 <div className={styles.titleBlock}>
-                    <h1>Vacuula Server Logs</h1>
+                    <h1>
+                        Vacuula Server Logs
+                        <HeaderLoadingSpinner size={18} />
+                    </h1>
                     <p>
                         Live server stream • Vacuula v{serverInfo.version} ({serverInfo.timezone})
                     </p>

@@ -119,6 +119,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const { isDark: isDarkMode, setTheme } = useTheme()
     const setIsDarkMode = (dark: boolean) => setTheme(dark ? 'dark' : 'light')
     const [isLoading, setIsLoading] = useState(false)
+    const [isSyncing, setIsSyncing] = useState(false)
     const [loadingState, setLoadingState] = useState<LoadingState>({ isLoading: false })
     const [message, setMessage] = useState<string | null>(null)
     const [hasOutdatedRobot, setHasOutdatedRobot] = useState(false)
@@ -194,6 +195,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // so view transitions and robot switching occur INSTANTANEOUSLY without flashing loading states.
         const initial = createInitialRobot(serial, entry, entry.last_state)
         setRobot(initial)
+        setIsSyncing(true)
 
         if (!entry.connected) {
             Http.getRobotTelemetry(serial, false)
@@ -206,12 +208,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     }
                 })
                 .catch(() => {})
+                .finally(() => setIsSyncing(false))
             return
         }
 
         if (entry.type === RobotType.NeatoGen3) {
-            getGen3State(serial, entry.name)
-            refreshZoneQueue(serial)
+            Promise.allSettled([
+                getGen3State(serial, entry.name),
+                refreshZoneQueue(serial),
+            ]).finally(() => setIsSyncing(false))
         } else if (entry.type === RobotType.NeatoGen4) {
             GEN4_COMMANDS.getRobotState(serial)
                 .then((res) => {
@@ -234,6 +239,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                     console.warn('Gen4 getRobotState failed, falling back to cached state:', err)
                     setRobot(createInitialRobot(serial, entry, entry.last_state))
                 })
+                .finally(() => setIsSyncing(false))
         }
     }, [getGen3State, refreshZoneQueue])
 
@@ -249,11 +255,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }, [connectToRobot])
 
     const refreshRobots = useCallback(async () => {
-        const res = await Http.getRobots()
-        setRobots(res.data)
-        const cur = robotRef.current
-        if (cur && !res.data[cur.serial]) {
-            setRobot(undefined)
+        setIsSyncing(true)
+        try {
+            const res = await Http.getRobots()
+            setRobots(res.data)
+            const cur = robotRef.current
+            if (cur && !res.data[cur.serial]) {
+                setRobot(undefined)
+            }
+        } finally {
+            setIsSyncing(false)
         }
     }, [])
 
@@ -467,11 +478,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     if (hasOutdatedRobot && robots) return <ServerHasOutdatedRobot robots={robots} serverInfo={serverInfo} />
 
+    const isContextLoading = !robots || isLoading || loadingState.isLoading || isSyncing
+
     const value: AppContextType = {
         serverInfo,
         isDarkMode,
         setIsDarkMode,
-        isLoading,
+        isLoading: isContextLoading,
         setIsLoading,
         loadingState,
         setLoadingState,

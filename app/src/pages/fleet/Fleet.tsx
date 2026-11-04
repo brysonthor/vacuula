@@ -26,6 +26,7 @@ import { useMascot } from '../../mascot'
 import Loading from '../loading/loading'
 import { Neato, RobotType, type QuickRobotEntry } from '../../types'
 import { getGen3CleaningMode, getGen3NavigationMode, getGen4CleaningMode, getGen4NavigationMode } from '../../utils/modes'
+import HeaderLoadingSpinner from '../../components/loading/HeaderLoadingSpinner'
 import styles from './Fleet.module.scss'
 
 export default function Fleet() {
@@ -94,7 +95,10 @@ export default function Fleet() {
         <div className={styles.page}>
             <header className={styles.header}>
                 <div className={styles.headerTitleGroup}>
-                    <h1 className={styles.title}>{t('fleet.title', 'Fleet Overview')}</h1>
+                    <div className={styles.titleRow}>
+                        <h1 className={styles.title}>{t('fleet.title', 'Fleet Overview')}</h1>
+                        <HeaderLoadingSpinner size={20} />
+                    </div>
                     <p className={styles.subtitle}>
                         {t('fleet.subtitle', 'Live status, quick actions, and diagnostics across your Vacuula server.')}
                     </p>
