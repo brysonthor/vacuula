@@ -12,7 +12,7 @@ import { BASE_PATH } from './http.ts';
 
 createRoot(document.getElementById('root')!).render(
   <ErrorBoundary>
-    <BrowserRouter basename={BASE_PATH}>
+    <BrowserRouter basename={BASE_PATH} useTransitions={false}>
       <AppProvider>
         <App />
       </AppProvider>
