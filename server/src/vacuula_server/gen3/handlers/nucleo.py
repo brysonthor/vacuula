@@ -23,21 +23,22 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # Gen 3 robots send a 1-byte heartbeat chunk roughly every 30s, but while
-# docked (Wi-Fi power-save) they regularly skip one or two. Application-level
-# silence is therefore NOT a reliable sign of a dead link, and every
-# server-initiated disconnect risks the robot not reconnecting for hours.
+# docked (Wi-Fi power-save) they regularly skip heartbeats. Application-level
+# silence is therefore NOT a sign of a dead link, and every server-initiated
+# disconnect risks the robot staying asleep and not reconnecting for hours.
 #
-# Instead of a read timeout we:
-#   * send our own heartbeat chunk every HEARTBEAT_INTERVAL_S (as the original
-#     cloud did), which keeps the robot's radio / AP / NAT state warm, and
-#   * let TCP decide when the peer is really gone: if heartbeat data stays
-#     unacknowledged for TCP_USER_TIMEOUT_MS (or keepalive probes fail) the
-#     kernel errors the socket and the blocking read below returns.
+# Do NOT send periodic synthetic chunks from the server: Gen 3 firmware only
+# accepts signed command envelopes on an established stream and disconnects if
+# unsolicited unsigned JSON is pushed.
+#
+# Instead of an application-level read timeout we:
+#   * perform blocking reads on req.rfile (sock.settimeout(None)), and
+#   * let the kernel TCP stack detect real link loss via TCP keepalives
+#     (TCP_KEEPIDLE, TCP_KEEPINTVL, TCP_KEEPCNT) and TCP_USER_TIMEOUT.
 #
 # NOTE: never put a timeout on the socket and read via req.rfile: after a
 # single socket.timeout CPython marks the SocketIO as timed out and every
 # later read raises "cannot read from timed out object".
-HEARTBEAT_INTERVAL_S = 30
 QUIET_LOG_AFTER_S = 45
 TCP_USER_TIMEOUT_MS = 300_000
 TCP_KEEPALIVE_OPTS = (
@@ -83,27 +84,6 @@ class _SessionState:
         self.end_reason: str | None = None
 
 
-def _heartbeat_loop(serial: str, conn: RobotConn, wfile, sock, state: _SessionState) -> None:
-    while not conn.stop_event.wait(HEARTBEAT_INTERVAL_S):
-        try:
-            send_chunk(wfile, build_heartbeat())
-        except Exception as e:
-            if not conn.stop_event.is_set():
-                state.end_reason = state.end_reason or f"heartbeat write failed: {e!r}"
-                logger.warning("Robot %s heartbeat write failed: %r", serial, e)
-                conn.stop_event.set()
-                shutdown_robot_socket(sock)
-            return
-
-        quiet = time.monotonic() - state.last_rx
-        if quiet >= QUIET_LOG_AFTER_S and not state.quiet_logged:
-            state.quiet_logged = True
-            logger.info(
-                "Robot %s quiet for %ds; keeping session open (TCP will detect a dead link)",
-                serial, quiet,
-            )
-
-
 def nucleo_init(req: RouterHandler) -> None:
     """POST /vendors/neato/login - robot commands"""
     if not (serial := get_robot_serial(req)): return
@@ -144,13 +124,6 @@ def nucleo_init(req: RouterHandler) -> None:
 
     state = _SessionState()
     connected_at = time.monotonic()
-    heartbeat = threading.Thread(
-        target=_heartbeat_loop,
-        args=(serial, conn, req.wfile, sock, state),
-        name=f"gen3-heartbeat-{serial}",
-        daemon=True,
-    )
-    heartbeat.start()
 
     try:
         while not conn.stop_event.is_set():
@@ -172,7 +145,6 @@ def nucleo_init(req: RouterHandler) -> None:
     finally:
         superseded = robot_connections.get(serial) is not conn
         conn.stop_event.set()
-        heartbeat.join(timeout=1)
         release_send_lock(req.wfile)
         if superseded:
             state.end_reason = "superseded by a newer login"

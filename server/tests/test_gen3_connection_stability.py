@@ -65,8 +65,7 @@ def gen3_robot():
 
 
 @pytest.fixture
-def fast_heartbeat(monkeypatch):
-    monkeypatch.setattr(nucleo, "HEARTBEAT_INTERVAL_S", 0.05)
+def fast_quiet_log(monkeypatch):
     monkeypatch.setattr(nucleo, "QUIET_LOG_AFTER_S", 0.1)
 
 
@@ -96,21 +95,19 @@ def _scripted_readline(*steps):
     return readline
 
 
-def test_silent_robot_keeps_session_and_receives_server_heartbeats(
-    gen3_robot, fast_heartbeat, no_side_effects, caplog
+def test_silent_robot_keeps_session_open_and_resumes(
+    gen3_robot, no_side_effects, caplog
 ):
     req = FakeReq()
-    # Robot goes quiet far longer than the heartbeat interval, then resumes.
-    req.rfile.readline = _scripted_readline(0.5, SIZE_LINE, PAYLOAD)
+    # Robot goes quiet (simulating Wi-Fi power-save sleep on dock), then resumes.
+    req.rfile.readline = _scripted_readline(0.3, SIZE_LINE, PAYLOAD)
 
     with patch.object(nucleo, "send_chunk") as send_chunk, caplog.at_level(logging.INFO):
         nucleo.nucleo_init(req)
 
-    # 1 heartbeat on connect + several periodic ones while the robot was silent
-    assert send_chunk.call_count >= 4
+    # Exactly 1 heartbeat on connect (the login handshake) and none while the robot was silent
+    assert send_chunk.call_count == 1
     messages = "\n".join(r.getMessage() for r in caplog.records)
-    assert "keeping session open" in messages
-    assert "resumed after" in messages
     assert "EOF from robot" in messages
     assert SERIAL not in robot_connections
 
@@ -130,9 +127,8 @@ def test_tcp_dead_peer_error_ends_session_cleanly(gen3_robot, no_side_effects, c
     assert SERIAL not in robot_connections
 
 
-def test_heartbeat_write_failure_unblocks_reader(
-    gen3_robot, fast_heartbeat, no_side_effects, caplog
-):
+def test_shutdown_unblocks_blocking_reader(gen3_robot, no_side_effects, caplog):
+    """shutdown_robot_socket must unblock a thread waiting in readline()."""
     unblocked = threading.Event()
 
     def readline():
@@ -142,21 +138,16 @@ def test_heartbeat_write_failure_unblocks_reader(
 
     req = FakeReq()
     req.rfile.readline = readline
-    calls = {"n": 0}
 
-    def send_chunk(wfile, payload):
-        calls["n"] += 1
-        if calls["n"] > 1:
-            raise BrokenPipeError(errno.EPIPE, "Broken pipe")
+    def trigger_shutdown():
+        time.sleep(0.05)
+        nucleo.shutdown_robot_socket(req.connection)
+        unblocked.set()
 
-    with patch.object(nucleo, "send_chunk", side_effect=send_chunk), \
-         patch.object(nucleo, "shutdown_robot_socket", side_effect=lambda s: unblocked.set()), \
-         caplog.at_level(logging.INFO):
-        nucleo.nucleo_init(req)
+    threading.Thread(target=trigger_shutdown, daemon=True).start()
+    nucleo.nucleo_init(req)
 
     assert unblocked.is_set()
-    messages = "\n".join(r.getMessage() for r in caplog.records)
-    assert "heartbeat write failed" in messages
     assert SERIAL not in robot_connections
 
 
@@ -199,7 +190,7 @@ def test_new_login_supersedes_and_wakes_old_session(gen3_robot, no_side_effects,
     assert SERIAL not in robot_connections
 
 
-def test_real_socket_survives_robot_silence(gen3_robot, fast_heartbeat, no_side_effects):
+def test_real_socket_survives_robot_silence(gen3_robot, no_side_effects):
     """End-to-end over TCP: silence must not poison the reader (the old bug)."""
     listener = socket.create_server(("127.0.0.1", 0))
     robot = socket.create_connection(listener.getsockname())
@@ -214,11 +205,12 @@ def test_real_socket_survives_robot_silence(gen3_robot, fast_heartbeat, no_side_
     t = threading.Thread(target=nucleo.nucleo_init, args=(req,), daemon=True)
     t.start()
     try:
-        time.sleep(0.4)  # robot silent for many heartbeat intervals
+        time.sleep(0.4)  # robot silent
         assert t.is_alive(), "session must stay open while the robot is quiet"
         robot.settimeout(2)
         received = robot.recv(65536)
-        assert received.count(b'"heartbeat"') >= 3
+        assert b'"heartbeat"' in received
+        assert received.count(b'"heartbeat"') == 1
 
         robot.sendall(SIZE_LINE + PAYLOAD)  # robot resumes on the same socket
         time.sleep(0.1)

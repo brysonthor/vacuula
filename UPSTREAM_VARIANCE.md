@@ -16,8 +16,10 @@ In upstream:
 ### Files Modified
 
 #### `server/src/vacuula_server/gen3/handlers/nucleo.py`
-- Increased `sock.settimeout(60)` to `sock.settimeout(180)` (3 minutes). This provides ample tolerance for Wi-Fi power-save sleep or temporary re-transmits without false disconnects.
-- Added explicit `except TimeoutError:` logging at warning level and clean logging for unexpected errors instead of raw `traceback.print_exc()`.
+- Replaced application-level socket timeouts with blocking reads (`sock.settimeout(None)`) and kernel TCP keepalives (`SO_KEEPALIVE`, `TCP_KEEPIDLE=60`, `TCP_KEEPINTVL=15`, `TCP_KEEPCNT=8`, `TCP_USER_TIMEOUT=300_000`). This completely prevents false disconnects during prolonged Wi-Fi power-save sleep while allowing the OS TCP stack to detect genuinely dead peers.
+- Fixed CPython `SocketIO` timeout poisoning (`ValueError: cannot read from timed out object`) by avoiding socket timeouts entirely on stream reader objects.
+- Removed periodic unsolicited heartbeat chunks from the server: Gen 3 firmware only accepts the initial `{"heartbeat": 60, ...}` login response at connect time and expects signed command envelopes once established.
+- Added graceful superseding of previous connections on robot reconnect via `shutdown_robot_socket()` to unblock reader threads without corrupting SSL state.
 - Added `reset_robot_buffer(serial)` in `finally:` to guarantee no stale buffer state carries over across robot reconnections.
 
 #### `server/src/vacuula_server/gen3/event_handler.py`
