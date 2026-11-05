@@ -237,7 +237,10 @@ def test_nucleo_init():
     assert req_ok.status == 200
 
 
-def test_nucleo_init_timeout_heartbeat():
+def test_nucleo_init_configures_blocking_socket():
+    # Regression: a read timeout on req.rfile permanently poisons it
+    # ("cannot read from timed out object"), so the Gen 3 session must use
+    # blocking reads and leave dead-peer detection to TCP.
     serial = "OPS12345-aabbccddeeff"
     with get_session() as session:
         if not session.get(Robot, serial):
@@ -247,31 +250,12 @@ def test_nucleo_init_timeout_heartbeat():
 
     req = MockHandler(headers=auth_header(serial))
 
-    # Mock readline: first raises TimeoutError (triggers heartbeat ping), then returns payload, then EOF
-    payload = b'{"state": 1, "action": 0}\r\n'
-    size_hex = f"{len(payload):x}\r\n".encode()
-
-    call_count = 0
-    def mock_readline():
-        nonlocal call_count
-        call_count += 1
-        if call_count == 1:
-            raise TimeoutError("Simulated idle timeout")
-        elif call_count == 2:
-            return size_hex
-        elif call_count == 3:
-            return payload
-        return b""
-
-    req.rfile.readline = mock_readline
-
-    with patch("vacuula_server.gen3.handlers.nucleo.refresh_gen3_telemetry_async"), \
-         patch("vacuula_server.gen3.handlers.nucleo.send_chunk") as mock_send_chunk:
+    with patch("vacuula_server.gen3.handlers.nucleo.refresh_gen3_telemetry_async"):
         nucleo.nucleo_init(req)
 
-    # First send_chunk on connect + second send_chunk on TimeoutError
-    assert mock_send_chunk.call_count >= 2
+    req.connection.settimeout.assert_called_once_with(None)
     assert req.status == 200
+    assert serial not in robot_connections
 
 
 def test_s3_upload_multipart(tmp_path, monkeypatch):

@@ -7,9 +7,12 @@ import threading
 # Shared robot connection
 
 class Gen2Gen3Conn:
-    def __init__(self, password: str, wfile: StreamRequestHandler.wfile):
+    def __init__(self, password: str, wfile: StreamRequestHandler.wfile, sock=None):
         self.password = password
         self.wfile = wfile
+        # Underlying socket, used to unblock the reader thread when the
+        # session is torn down or superseded by a newer login.
+        self.sock = sock
 
 class Gen4Conn:
     def __init__(self, socket: SSLSocket):

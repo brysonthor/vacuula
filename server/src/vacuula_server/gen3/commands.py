@@ -21,6 +21,10 @@ def get_send_lock(wfile):
             _send_locks[key] = threading.Lock()
         return _send_locks[key]
 
+def release_send_lock(wfile):
+    with _send_locks_lock:
+        _send_locks.pop(id(wfile), None)
+
 def hmac_sha256(message: str, secret: str) -> str:
     signature = hmac.new(
         secret.encode("utf-8"),
