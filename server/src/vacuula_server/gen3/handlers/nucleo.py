@@ -10,7 +10,8 @@ from vacuula_server.state import robot_connections
 from vacuula_server.handlers.events import notify_robots_changed
 from vacuula_server.gen3.utils import get_robot_serial
 from vacuula_server.db import get_session
-from vacuula_server.gen3.event_handler import robot_data, reset_robot_buffer
+from vacuula_server.gen3.chunked import iter_chunks, MessageAssembler
+from vacuula_server.gen3.event_handler import robot_data, robot_message, reset_robot_buffer
 from vacuula_server.models.robot import Robot
 from sqlalchemy import select
 from typing import TYPE_CHECKING
@@ -124,12 +125,11 @@ def nucleo_init(req: RouterHandler) -> None:
 
     state = _SessionState()
     connected_at = time.monotonic()
+    assembler = MessageAssembler()
 
     try:
-        while not conn.stop_event.is_set():
-            data = req.rfile.readline()
-            if not data:
-                state.end_reason = state.end_reason or "EOF from robot"
+        for chunk in iter_chunks(req.rfile):
+            if conn.stop_event.is_set():
                 break
 
             now = time.monotonic()
@@ -137,7 +137,12 @@ def nucleo_init(req: RouterHandler) -> None:
                 logger.info("Robot %s resumed after %ds of silence", serial, now - state.last_rx)
                 state.quiet_logged = False
             state.last_rx = now
-            robot_data(serial, data)
+            for message in assembler.feed(chunk):
+                try:
+                    robot_message(serial, message)
+                except Exception:
+                    logger.exception("Message from %s could not be handled: %.200s", serial, message)
+        state.end_reason = state.end_reason or "EOF from robot"
     except Exception as e:
         state.end_reason = state.end_reason or f"connection error: {e!r}"
         if not conn.stop_event.is_set():

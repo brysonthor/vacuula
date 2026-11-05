@@ -1,5 +1,6 @@
 import { Http } from "../http"
 import type { NoGoLine, SetZone, Zone } from "../components/map/types"
+import { GEN3_MAX_POINTS_PER_BOUNDARY, roundPoint } from "../components/map/gen3Budget"
 import type { ScheduleEvent } from "../pages/schedule/types"
 import type { Neato } from "../types"
 import type { Preferences } from "../types/neato/gen3"
@@ -165,7 +166,11 @@ function getMapBoundaries(serial: string, mapId: string) {
 
 
 function setMapBoundaries(serial: string, mapId: string, boundaries: (NoGoLine | SetZone | Zone)[]) {
-    return Http.sendCmd(serial, { cmd: "setMapBoundaries", params: { mapId, boundaries } })
+    const sanitized = boundaries.map(b => ({
+        ...b,
+        vertices: (b.vertices || []).slice(0, GEN3_MAX_POINTS_PER_BOUNDARY).map(roundPoint)
+    }))
+    return Http.sendCmd(serial, { cmd: "setMapBoundaries", params: { mapId, boundaries: sanitized } })
 }
 
 function getSchedule(serial: string) {

@@ -11,9 +11,13 @@ from vacuula_server.models.robot import Robot
 from vacuula_server.models.persistent_map import PersistentMap
 from vacuula_server.models.run import Gen3__Run
 import os
+import re
 from sqlalchemy import select
 
 from typing import TYPE_CHECKING, Literal
+
+# same "unknown dock position" sentinel the app already understands (INT32_MAX)
+NO_BASE = 2147483647
 
 if TYPE_CHECKING:
     from vacuula_server.handlers.router import RouterHandler
@@ -167,7 +171,9 @@ def upload_finish(req: RouterHandler, upload_type:Literal["maps", "logs"], job_i
     manifest_path = f"{job_folder}/manifest.json"
     floormap_meta, _ = parse_session(floor_map_path, run_map_path, job_folder)
 
-    base = (floormap_meta["dock"]["normalised_x"], floormap_meta["dock"]["normalised_y"])
+    # a run that ends away from the dock (stopped, picked up) has no dock marker in its RunMap
+    dock = floormap_meta.get("dock")
+    base = (dock["normalised_x"], dock["normalised_y"]) if dock else None
     valid = run['valid_as_persistent_map']
 
     with get_session() as session:
@@ -177,13 +183,14 @@ def upload_finish(req: RouterHandler, upload_type:Literal["maps", "logs"], job_i
                 id=run_id,
                 robot=serial,
                 name="(unnamed)",
-                base=base,
+                base=base if base is not None else (NO_BASE, NO_BASE),
                 enabled=valid,
                 in_maps_list=valid,
             ))
         else:
             logger.debug("Persistent map %s exists, updating", run_id)
-            pmap.base = base
+            if base is not None:
+                pmap.base = base
             # an upload during the run is not yet valid; promote once a later upload is
             if valid and not pmap.in_maps_list:
                 pmap.in_maps_list = True
@@ -206,3 +213,38 @@ def upload_finish(req: RouterHandler, upload_type:Literal["maps", "logs"], job_i
             notify_run_completed(serial, run, gen="gen3")
         except Exception as e:
             logger.warning("Discord notify_run_completed failed: %s", e)
+
+
+# run ids are timestamps like 2026-10-22T20:26:27Z; anything else must not reach the filesystem
+RUN_ID_RE = re.compile(r"^[0-9A-Za-z:.\-]+$")
+
+def post_life_stats(req: RouterHandler, run_id: str) -> None:
+    """POST /runs/<run_id>/life_stats - lifetime statistics the robot sends after a run."""
+    if not (serial := get_robot_serial(req)): return
+    if not RUN_ID_RE.match(run_id):
+        req.send_bad_request("invalid run id")
+        return
+
+    if (body := req.read_data()) is None: return
+    logger.info("life_stats from %s for run %s: %s", serial, run_id, body[:2000])
+
+    folder = MAPS_DIR / serial / run_id
+    try:
+        os.makedirs(folder, exist_ok=True)
+        with open(folder / "life_stats.json", "wb") as f:
+            f.write(body)
+    except Exception:
+        logger.exception("Failed to store life_stats for run %s", run_id)
+        req.send_internal_error()
+        return
+
+    req.send_ok()
+
+
+def post_push_notifications(req: RouterHandler) -> None:
+    """POST /push_notifications - the robot asks the cloud to notify the user's phone."""
+    if not (serial := get_robot_serial(req)): return
+    if (body := req.read_data()) is None: return
+    logger.info("push_notifications from %s: %s", serial, body[:2000])
+    req.send_ok()
+

@@ -79,14 +79,71 @@ def build_heartbeat():
     }).encode()
 
 
+_req_id_lock = threading.Lock()
+
 def build_command(robot_serial: str, cmd: dict):
     global req_id
 
+    with _req_id_lock:
+        this_id = req_id
+        req_id += 1
+
     payload = json.dumps({
-        "reqId": str(req_id),
+        "reqId": str(this_id),
         **cmd
     }, ensure_ascii=False)
 
-    req_id += 1
+    return [this_id, sign_cmd(robot_serial, payload).encode()]
 
-    return [(req_id - 1), sign_cmd(robot_serial, payload).encode()]
+
+def send_command(wfile, robot_serial: str, cmd: dict, slot) -> str:
+    """Register `slot` for the reply and send `cmd`; returns the reqId key.
+    On a send failure the slot is unregistered again and the error re-raised."""
+    from vacuula_server.state import pending_requests
+
+    req_id_val, msg = build_command(robot_serial, cmd)
+    key = str(req_id_val)
+    pending_requests[key] = slot
+    try:
+        send_chunk(wfile, msg)
+    except Exception:
+        pending_requests.pop(key, None)
+        raise
+    return key
+
+
+def gen3_wfile(robot_serial: str):
+    """Where to write commands to the robot; None if it is not connected (or not gen3)."""
+    from vacuula_server.conn import Gen2Gen3Conn
+    from vacuula_server.state import robot_connections
+
+    conn = robot_connections.get(robot_serial)
+    return conn.conn.wfile if conn is not None and isinstance(conn.conn, Gen2Gen3Conn) else None
+
+
+def send_and_wait(wfile, robot_serial: str, cmd: dict, timeout: float):
+    """Send `cmd` and wait up to `timeout` for the reply. Returns its PendingRequest: `event.is_set()`
+    says whether the robot answered, `status` (200: ok) and `content` what it said. Raises if the
+    command could not be sent."""
+    from vacuula_server.state import PendingRequest, pending_requests
+
+    slot = PendingRequest()
+    key = send_command(wfile, robot_serial, cmd, slot)
+    slot.event.wait(timeout)
+    pending_requests.pop(key, None)
+    return slot
+
+
+def ask(robot_serial: str, cmd: dict, timeout: float = 15) -> dict | None:
+    """Send `cmd` from the server itself and wait for the reply; None if the robot is not connected,
+    does not answer in time or refuses the command."""
+    wfile = gen3_wfile(robot_serial)
+    if wfile is None:
+        return None
+    slot = send_and_wait(wfile, robot_serial, cmd, timeout)
+    if not slot.event.is_set() or slot.status != 200:
+        return None
+    try:
+        return json.loads(slot.content)
+    except ValueError:
+        return None

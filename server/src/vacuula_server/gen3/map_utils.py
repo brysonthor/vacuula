@@ -79,19 +79,22 @@ FREE    = 1
 WALL    = 2
 
 # =========================================================
-# DOCK DETECTION
+# MARKERS
 # =========================================================
-# The RunMap encodes the dock with two special pixel values
-# that never appear in normal map data:
+# The RunMap marks three positions with 4×4 blocks of special pixel values
+# that never appear in normal map data. Checked on a D7's runs:
 #
-#   100  →  dark-gray  (top 4×4 block of dock marker)
-#   200  →  light-gray (bottom 4×4 block of dock marker)
+#   100  →  dock: same place in every run, but only drawn when the run
+#           completed (canceled runs have none)
+#   200  →  where the run started (moves when started away from the dock)
+#   150  →  where the run ended
 #
-# Their combined centroid gives the dock position, which is
-# embedded in floormap.json so consumers always have it.
+# Only the dock block gives the dock position, which is embedded in
+# floormap.json. (Taking 100 and 200 together put the dock at the start
+# position whenever a run did not start on the dock.)
 #
-DOCK_MARKER_LABELS = {100: "dock_marker_top", 200: "dock_marker_bottom"}
-DOCK_MARKER_VALUES = set(DOCK_MARKER_LABELS)
+MARKER_LABELS = {100: "dock_marker", 200: "start_marker", 150: "end_marker"}
+DOCK_MARKER_VALUES = {100}
 
 # =========================================================
 # RUNMAP LEGEND  (labels only — pixel values are never remapped)
@@ -103,8 +106,9 @@ DOCK_MARKER_VALUES = set(DOCK_MARKER_LABELS)
 # named  path_value_<N>.
 #
 #   128   →  background  (untouched canvas — the robot never went here)
-#   100   →  dock_marker_top      (see DOCK DETECTION)
-#   200   →  dock_marker_bottom
+#   100   →  dock_marker
+#   200   →  start_marker
+#   150   →  end_marker
 #   other →  path_value_<N>       (the robot drove here)
 #
 RUN_BACKGROUND_VALUE = 128
@@ -141,8 +145,8 @@ def _rle_encode(cells: list[int]) -> list[list[int]]:
 def _run_label(value: int) -> str:
     if value == RUN_BACKGROUND_VALUE:
         return "background"
-    if value in DOCK_MARKER_LABELS:
-        return DOCK_MARKER_LABELS[value]
+    if value in MARKER_LABELS:
+        return MARKER_LABELS[value]
     return f"path_value_{value}"
 
 
@@ -190,11 +194,10 @@ def _downsample_majority(arr: np.ndarray, downsample: int) -> np.ndarray:
 
 def detect_dock(run_path: str | Path) -> dict | None:
     """
-    Scan a RunMap image for dock-marker pixels (values 100 and 200),
-    compute their combined centroid, and return both pixel and
-    normalised [0, 1] coordinates.
+    Scan a RunMap image for the dock block (value 100), compute its
+    centroid, and return both pixel and normalised [0, 1] coordinates.
 
-    Returns None if no marker pixels are found.
+    Returns None if the run has no dock block (e.g. it was canceled).
     """
     arr, _ = _load_pixels(run_path)
     H, W   = arr.shape
@@ -264,7 +267,7 @@ def _parse_floor_map(
                 for dx in range(DOWNSAMPLE):
                     raw = pixels[gx * DOWNSAMPLE + dx,
                                  gy * DOWNSAMPLE + dy]
-                    if raw in DOCK_MARKER_VALUES:
+                    if raw in MARKER_LABELS:
                         counts[FREE] += 1
                     else:
                         counts[_classify(raw)] += 1
