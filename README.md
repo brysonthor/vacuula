@@ -37,7 +37,11 @@ _custom server for the undead robot vacuum cleaners_
 <i>Your robot not listed here? Get in touch!</i>
 <br><i>¹Sadly we were not able to fit the OG BotVac Connected into the initial release, sorry about this, support for this robot is in the works and here very soon!</i>
 
-![Vacuula webapp](pics/showcase.png)
+### Desktop Interface
+![Vacuula Desktop UI](pics/desktop-showcase.png)
+
+### Mobile Interface
+![Vacuula Mobile UI](pics/mobile-showcase.png)
 
 | Feature          | Status               |   | Feature                | Status |
 |------------------|----------------------|---|------------------------|--------|

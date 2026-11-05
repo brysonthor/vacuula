@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "icons": "node scripts/make-icons.mjs",
+    "screenshots": "node scripts/generate-screenshots.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:no-ts": "vite build; rm -r ../server/web; cp -r ./dist ../server/web",
@@ -44,6 +45,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
+    "puppeteer-core": "^25.16.0",
     "sharp": "^0.35.4",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
