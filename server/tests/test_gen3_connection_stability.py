@@ -224,6 +224,41 @@ def test_real_socket_survives_robot_silence(gen3_robot, no_side_effects):
     assert SERIAL not in robot_connections
 
 
+def test_configure_robot_socket_relaxed_keepalive():
+    """Verify configure_robot_socket applies relaxed keepalive and no TCP_USER_TIMEOUT."""
+    assert nucleo.TCP_KEEPALIVE_OPTS == (
+        ("TCP_KEEPIDLE", 1800),
+        ("TCP_KEEPINTVL", 60),
+        ("TCP_KEEPCNT", 10),
+    )
+    assert not hasattr(nucleo, "TCP_USER_TIMEOUT_MS")
+
+    with patch.object(socket, "TCP_KEEPIDLE", 4, create=True), \
+         patch.object(socket, "TCP_KEEPINTVL", 5, create=True), \
+         patch.object(socket, "TCP_KEEPCNT", 6, create=True), \
+         patch.object(socket, "TCP_USER_TIMEOUT", 18, create=True):
+        mock_sock = MagicMock()
+        nucleo.configure_robot_socket(mock_sock)
+
+        mock_sock.settimeout.assert_called_once_with(None)
+        mock_sock.setsockopt.assert_any_call(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+
+        # Check keepalive settings match relaxed parameters
+        setsockopt_calls = mock_sock.setsockopt.call_args_list
+        tcp_calls = [call for call in setsockopt_calls if call.args[0] == socket.IPPROTO_TCP]
+
+        assert any(c.args[1] == 4 and c.args[2] == 1800 for c in tcp_calls)
+        assert any(c.args[1] == 5 and c.args[2] == 60 for c in tcp_calls)
+        assert any(c.args[1] == 6 and c.args[2] == 10 for c in tcp_calls)
+
+        # Ensure TCP_USER_TIMEOUT is NOT applied
+        assert not any(c.args[1] == 18 for c in tcp_calls)
+
+
+def test_tls_handshake_timeout_is_120():
+    assert gen3_init.TLS_HANDSHAKE_TIMEOUT_S == 120
+
+
 # --- Gen3 HTTPS listener ----------------------------------------------------
 
 @pytest.fixture

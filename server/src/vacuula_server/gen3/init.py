@@ -10,7 +10,7 @@ import threading
 logger = logging.getLogger(__name__)
 
 # Upper bound for a client to complete the TLS handshake.
-TLS_HANDSHAKE_TIMEOUT_S = 20
+TLS_HANDSHAKE_TIMEOUT_S = 120
 
 
 class Gen3HTTPSServer(LoggingThreadingHTTPServer):

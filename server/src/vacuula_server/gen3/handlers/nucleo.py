@@ -34,23 +34,23 @@ logger = logging.getLogger(__name__)
 #
 # Instead of an application-level read timeout we:
 #   * perform blocking reads on req.rfile (sock.settimeout(None)), and
-#   * let the kernel TCP stack detect real link loss via TCP keepalives
-#     (TCP_KEEPIDLE, TCP_KEEPINTVL, TCP_KEEPCNT) and TCP_USER_TIMEOUT.
+#   * let the kernel TCP stack detect real link loss via relaxed TCP keepalives
+#     (TCP_KEEPIDLE, TCP_KEEPINTVL, TCP_KEEPCNT).
+#   * avoid TCP_USER_TIMEOUT so Wi-Fi power-save sleep does not abort the socket.
 #
 # NOTE: never put a timeout on the socket and read via req.rfile: after a
 # single socket.timeout CPython marks the SocketIO as timed out and every
 # later read raises "cannot read from timed out object".
 QUIET_LOG_AFTER_S = 45
-TCP_USER_TIMEOUT_MS = 300_000
 TCP_KEEPALIVE_OPTS = (
-    ("TCP_KEEPIDLE", 60),
-    ("TCP_KEEPINTVL", 15),
-    ("TCP_KEEPCNT", 8),
+    ("TCP_KEEPIDLE", 1800),
+    ("TCP_KEEPINTVL", 60),
+    ("TCP_KEEPCNT", 10),
 )
 
 
 def configure_robot_socket(sock) -> None:
-    """Blocking reads; dead-peer detection delegated to TCP."""
+    """Blocking reads; dead-peer detection delegated to relaxed TCP keepalive."""
     sock.settimeout(None)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
     for name, value in TCP_KEEPALIVE_OPTS:
@@ -59,11 +59,6 @@ def configure_robot_socket(sock) -> None:
                 sock.setsockopt(socket.IPPROTO_TCP, getattr(socket, name), value)
             except OSError:
                 pass
-    if hasattr(socket, "TCP_USER_TIMEOUT"):
-        try:
-            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_USER_TIMEOUT, TCP_USER_TIMEOUT_MS)
-        except OSError:
-            pass
 
 
 def shutdown_robot_socket(sock) -> None:
