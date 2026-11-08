@@ -79,6 +79,7 @@ describe('state utils', () => {
         expect(resolveRobotState({ ...dummyGen3Robot, state: 0 as any, action: Neato.Gen3.RobotAction.COPYING_LOGS })).toBe(BasicState.COPYING_LOGS)
         expect(resolveRobotState({ ...dummyGen3Robot, state: 0 as any, action: Neato.Gen3.RobotAction.RECOVERING_LOCATION })).toBe(BasicState.RECOVERING_LOCATION)
         expect(resolveRobotState({ ...dummyGen3Robot, state: 0 as any, action: Neato.Gen3.RobotAction.EXPLORING_MAP })).toBe(BasicState.EXPLORING_MAP)
+        expect(resolveRobotState({ ...dummyGen3Robot, state: Neato.Gen3.RobotState.BUSY, action: Neato.Gen3.RobotAction.INVALID })).toBe(BasicState.CLEANING)
     })
 
     it('resolves Gen 4 states and actions', () => {
@@ -91,6 +92,7 @@ describe('state utils', () => {
         expect(resolveRobotState({ ...dummyGen4Robot, state: 0 as any, action: Neato.Gen4.RobotAction.CLEANING_STANDBY })).toBe(BasicState.CLEANING_STANDBY)
         expect(resolveRobotState({ ...dummyGen4Robot, state: 0 as any, action: Neato.Gen4.RobotAction.DIAGNOSTIC_TEST })).toBe(BasicState.TEST)
         expect(resolveRobotState({ ...dummyGen4Robot, state: 0 as any, action: Neato.Gen4.RobotAction.UPDATING_SOFTWARE })).toBe(BasicState.UPDATING)
+        expect(resolveRobotState({ ...dummyGen4Robot, state: Neato.Gen4.RobotState.BUSY, action: Neato.Gen4.RobotAction.INVALID })).toBe(BasicState.CLEANING)
     })
 
     it('returns translation keys and string representations', () => {

@@ -326,6 +326,17 @@ def test_event_handler_robot_data():
         if isinstance(event_data, bytes):
             event_data = event_data.decode()
         assert "event" in event_data
+
+        # 5. SSE dispatch on command response with state
+        slot2 = PendingRequest()
+        pending_requests["req-456"] = slot2
+        resp_payload = json.dumps({"reqId": "req-456", "result": "ok", "state": 2, "action": 1}).encode() + b"\r\n"
+        event_handler.robot_message(serial, resp_payload)
+        assert not q.empty()
+        resp_event_data = q.get()
+        if isinstance(resp_event_data, bytes):
+            resp_event_data = resp_event_data.decode()
+        assert "neato.gen3" in resp_event_data
     finally:
         client_connections.clear()
 

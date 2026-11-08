@@ -266,6 +266,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return
         }
         if (robotRef.current?.serial === activeSerial && robotRef.current?.online === target.connected && robotRef.current?.name === target.name) {
+            if (target.last_state) {
+                const s = target.type === RobotType.NeatoGen3
+                    ? (target.last_state?.data?.state !== undefined ? target.last_state.data : target.last_state)
+                    : (target.last_state?.body ?? target.last_state)
+                if (s && typeof s === 'object') {
+                    setRobot(cur => {
+                        if (!cur || cur.serial !== activeSerial) return cur
+                        if (cur.type === RobotType.NeatoGen3) {
+                            return {
+                                ...cur,
+                                availableCommands: s.availableCommands ?? cur.availableCommands,
+                                availableServices: s.availableServices ?? cur.availableServices,
+                                cleaning: s.cleaning ?? cur.cleaning,
+                                meta: s.meta ?? cur.meta,
+                                details: s.details ? { ...cur.details, ...s.details } : cur.details,
+                                alert: s.alert !== undefined ? s.alert : cur.alert,
+                                error: s.error !== undefined ? s.error : cur.error,
+                                state: s.state !== undefined ? s.state : cur.state,
+                                action: s.action !== undefined ? s.action : cur.action,
+                            }
+                        } else if (cur.type === RobotType.NeatoGen4) {
+                            return {
+                                ...cur,
+                                availableCommands: s.available_commands ?? cur.availableCommands,
+                                details: s.details ? { ...cur.details, ...s.details } : cur.details,
+                                errors: s.errors !== undefined ? s.errors : cur.errors,
+                                state: s.state !== undefined ? s.state : cur.state,
+                                action: s.action !== undefined ? s.action : cur.action,
+                            }
+                        }
+                        return cur
+                    })
+                }
+            }
             return
         }
         connectToRobot(robots, activeSerial, target)
@@ -389,7 +423,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         interface VacuulaRobotEvent {
             serial: string
             ts: number
-            type: RobotType
+            type?: RobotType
+            event?: string | number
             data: any
         }
 
@@ -427,12 +462,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 return
             }
 
-            if (wrapper?.data?.type !== "state" && wrapper?.data?.eventId !== "77") {
-                return
-            }
+            const raw = wrapper?.data
+            if (!raw || typeof raw !== 'object') return
 
-            const d = wrapper.data.data
-            if (!d) return
+            const d = (raw.data && typeof raw.data === 'object' && (raw.data.state !== undefined || raw.data.details || raw.data.action !== undefined))
+                ? raw.data
+                : raw
+
+            const isStateEvent =
+                d.state !== undefined ||
+                d.action !== undefined ||
+                d.details !== undefined ||
+                d.availableCommands !== undefined ||
+                raw.type === "state" ||
+                String(raw.eventId) === "77" ||
+                String(wrapper.event) === "77"
+
+            if (!isStateEvent) return
+
             setRobot(cur => cur?.type === RobotType.NeatoGen3 ? {
                 ...cur,
                 online: true,
@@ -440,9 +487,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 availableServices: d.availableServices ?? cur.availableServices,
                 cleaning: d.cleaning ?? cur.cleaning,
                 meta: d.meta ?? cur.meta,
-                details: d.details ?? cur.details,
-                alert: d.alert,
-                error: d.error,
+                details: d.details ? { ...cur.details, ...d.details } : cur.details,
+                alert: d.alert !== undefined ? d.alert : cur.alert,
+                error: d.error !== undefined ? d.error : cur.error,
                 state: d.state ?? cur.state,
                 action: d.action ?? cur.action,
             } : cur)

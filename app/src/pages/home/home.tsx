@@ -353,6 +353,7 @@ export default function Home() {
                     gen3NavMode,
                     gen3Modifier
                 )
+                getGen3State(robot.serial, robot.name)
                 return
             }
 
@@ -379,6 +380,7 @@ export default function Home() {
                     navigationMode: gen3NavMode,
                 })
                 refreshZoneQueue(robot.serial)
+                getGen3State(robot.serial, robot.name)
                 return
             }
 
@@ -391,10 +393,12 @@ export default function Home() {
                     gen3NavMode,
                     gen3Modifier
                 )
+                getGen3State(robot.serial, robot.name)
                 return
             }
 
             await GEN3_COMMANDS.startCleaning(robot.serial, cat, gen3Mode, gen3NavMode, gen3Modifier)
+            getGen3State(robot.serial, robot.name)
             return
         }
 

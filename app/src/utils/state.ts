@@ -77,6 +77,9 @@ export function resolveRobotState(robot: Robot) {
             case Neato.Gen3.RobotAction.CREATING_UPLOADING_MAP: return BasicState.CREATING_UPLOADING_MAP
             case Neato.Gen3.RobotAction.SUSPENDED_EXPLORATION: return BasicState.SUSPENDED_EXPLORATION
         }
+        if (robot.state === Neato.Gen3.RobotState.BUSY) {
+            return BasicState.CLEANING
+        }
     }
 
     // robot_state.py:55-96
@@ -92,6 +95,9 @@ export function resolveRobotState(robot: Robot) {
             case Neato.Gen4.RobotAction.CLEANING_STANDBY: return BasicState.CLEANING_STANDBY
             case Neato.Gen4.RobotAction.DIAGNOSTIC_TEST: return BasicState.TEST
             case Neato.Gen4.RobotAction.UPDATING_SOFTWARE: return BasicState.UPDATING
+        }
+        if (robot.state === Neato.Gen4.RobotState.BUSY) {
+            return BasicState.CLEANING
         }
     }
 

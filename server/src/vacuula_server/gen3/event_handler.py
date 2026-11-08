@@ -45,13 +45,15 @@ def robot_message(serial: str, data: bytes):
         if slot is not None:
             slot.fulfill(data, 200 if result == "ok" else 400)
 
-    # Always update Gen 3 state cache when state or details are present
-    if (
+    has_state_or_details = (
         decoded.get("state") is not None
         or decoded.get("action") is not None
         or "details" in decoded
         or "details" in (decoded.get("data") or {})
-    ):
+    )
+
+    # Always update Gen 3 state cache when state or details are present
+    if has_state_or_details:
         update_gen3_state_cache(serial, decoded)
 
     if reqId is not None:
@@ -66,19 +68,21 @@ def robot_message(serial: str, data: bytes):
         except Exception as e:
             logger.debug("Discord notify_gen3_state failed: %s", e)
 
-        clients = [c for c in state.client_connections if c["serial"] == serial]
-        if clients:  # skip serializing when nobody is listening
-            msg = json.dumps({
-                "serial": serial,
-                "event": eventId,
-                "data": decoded,      # parsed dict, not raw bytes
-                "ts": time.time(),
-            }) + "\n"
-            frame = f"data: {msg}\n\n".encode()
-            for client in clients:
-                put_drop_oldest(client["queue"], frame)
+    # Forward any state updates or events to SSE client streams
+    clients = [c for c in state.client_connections if c["serial"] == serial]
+    if clients and (eventId or has_state_or_details):
+        msg = json.dumps({
+            "serial": serial,
+            "event": eventId,
+            "type": "neato.gen3",
+            "data": decoded,      # parsed dict, not raw bytes
+            "ts": time.time(),
+        }) + "\n"
+        frame = f"data: {msg}\n\n".encode()
+        for client in clients:
+            put_drop_oldest(client["queue"], frame)
 
-    else:
+    if reqId is None and not eventId:
         logger.error("no eventId or reqId in data from %s", serial)
 
 def robot_data(serial: str, data: bytes):
