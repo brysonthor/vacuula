@@ -7,6 +7,7 @@ from vacuula_server.db import check_db_is_up_to_date
 from vacuula_server.env import GEN3_ENABLED, GEN4_ENABLED, HA_INGRESS, MDNS_ENABLED
 from vacuula_server.fork_db import ensure_fork_tables
 from vacuula_server.orchestrator import start_scheduler_thread
+from vacuula_server.gen3.poller import start_gen3_poller_thread
 from vacuula_server.state import seed_cached_states_from_db
 import vacuula_server.gen3.init 
 import vacuula_server.gen4.init
@@ -32,6 +33,7 @@ def main():
     start_scheduler_thread()
     ensure_ssl_certificate()
     if GEN3_ENABLED:
+        start_gen3_poller_thread()
         threading.Thread(target=vacuula_server.gen3.init.start, daemon=True).start()
     if GEN4_ENABLED:
         threading.Thread(target=vacuula_server.gen4.init.start, daemon=True).start()

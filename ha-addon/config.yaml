@@ -23,6 +23,7 @@ map:
 
 options:
   GEN3_PORT: 335
+  GEN3_POLL_INTERVAL: 180
   GEN4_PORT: 3443
   VACUULA_PORT: 8050
   GEN3_ENABLED: true
@@ -33,6 +34,7 @@ options:
 
 schema:
   GEN3_PORT: int(100,999)
+  GEN3_POLL_INTERVAL: "int?"
   GEN4_PORT: int
   VACUULA_PORT: int
   GEN3_ENABLED: bool
