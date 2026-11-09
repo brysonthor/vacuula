@@ -1,0 +1,18 @@
+[
+  {
+    "id": "nogo-line-1",
+    "name": "Pet Bowls",
+    "type": "polyline",
+    "color": "#e74c3c",
+    "enabled": true,
+    "vertices": [[0.1, 0.1], [0.2, 0.2]]
+  },
+  {
+    "id": "zone-1",
+    "name": "Kitchen",
+    "type": "polygon",
+    "color": "#3498db",
+    "enabled": true,
+    "vertices": [[0.3, 0.3], [0.5, 0.3], [0.5, 0.5], [0.3, 0.5]]
+  }
+]

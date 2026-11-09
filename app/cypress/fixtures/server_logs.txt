@@ -1,0 +1,6 @@
+2026-11-09 14:00:00 [INFO] Vacuula server starting on version 1.1.1-b1
+2026-11-09 14:00:01 [INFO] Gen3 TCP server listening on port 335
+2026-11-09 14:00:01 [INFO] Gen4 TLS server listening on port 3443
+2026-11-09 14:05:12 [DEBUG] Robot OPS42417-7c38660f057e keepalive ping received
+2026-11-09 14:10:00 [WARNING] Consumable main_brush for OPS42417-7c38660f057e is below 5% remaining
+2026-11-09 14:15:30 [ERROR] Discord webhook notification failed: connection timeout

@@ -1,0 +1,112 @@
+{
+  "OPS42417-7c38660f057e": {
+    "type": "neato.gen3",
+    "connected": true,
+    "name": "Sparkles",
+    "installed_with": "1.1.0",
+    "model": "BotVacD3Connected",
+    "firmware": "4.5.3-189",
+    "ip_address": "192.168.0.223",
+    "last_seen_at": "2026-11-09T22:07:13.462012+00:00",
+    "charge": 73,
+    "is_docked": true,
+    "is_charging": false,
+    "state_label": "docked",
+    "has_error": false,
+    "error_code": null,
+    "last_state": {
+      "version": 1,
+      "result": "ok",
+      "data": {},
+      "state": 1,
+      "action": 0,
+      "error": null,
+      "alert": null,
+      "cleaning": {
+        "category": 4,
+        "mode": 1,
+        "modifier": 1,
+        "navigationMode": 1
+      },
+      "details": {
+        "isCharging": false,
+        "isDocked": true,
+        "isScheduleEnabled": true,
+        "dockHasBeenSeen": true,
+        "charge": 73
+      },
+      "availableCommands": {
+        "start": true,
+        "stop": false,
+        "pause": false,
+        "resume": false,
+        "goToBase": false
+      },
+      "availableServices": {
+        "findMe": "basic-1",
+        "generalInfo": "basic-1",
+        "houseCleaning": "basic-4",
+        "maps": "basic-2",
+        "preferences": "basic-2",
+        "schedule": "basic-2",
+        "spotCleaning": "basic-3"
+      },
+      "meta": {
+        "modelName": "BotVacD3Connected",
+        "firmware": "4.5.3-189"
+      }
+    }
+  },
+  "2126LB01A14101917": {
+    "type": "neato.gen4",
+    "connected": true,
+    "name": "Loki’s Low-Level Lackey",
+    "label_serial": "2127N301A24104005",
+    "model": "D8",
+    "firmware": "1.7.0-2933",
+    "ip_address": "192.168.0.172",
+    "last_seen_at": "2026-11-09T22:07:13.327494+00:00",
+    "charge": 98,
+    "is_docked": true,
+    "is_charging": false,
+    "state_label": "docked",
+    "has_error": false,
+    "error_code": null,
+    "last_state": {
+      "state": "idle",
+      "action": "invalid",
+      "errors": null,
+      "available_commands": {
+        "start": true,
+        "cancel": false,
+        "pause": false,
+        "resume": false,
+        "return_to_base": false
+      },
+      "details": {
+        "is_charging": false,
+        "is_docked": true,
+        "charge": 98,
+        "base_type": "standard",
+        "is_quickboost": false,
+        "quickboost_estimate": -1
+      }
+    }
+  },
+  "OFFLINE-ROBOT-001": {
+    "type": "neato.gen3",
+    "connected": false,
+    "name": "Dustmite",
+    "installed_with": "1.1.0",
+    "model": "BotVacD5Connected",
+    "firmware": "4.5.3-189",
+    "ip_address": null,
+    "last_seen_at": "2026-11-08T12:00:00.000000+00:00",
+    "charge": 12,
+    "is_docked": false,
+    "is_charging": false,
+    "state_label": "offline",
+    "has_error": false,
+    "error_code": null
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "reqId": "1",
+  "result": "ok",
+  "data": {},
+  "state": 1,
+  "action": 0,
+  "error": null,
+  "alert": null,
+  "details": {
+    "isCharging": false,
+    "isDocked": true,
+    "isScheduleEnabled": true,
+    "dockHasBeenSeen": true,
+    "charge": 73
+  },
+  "availableCommands": {
+    "start": true,
+    "stop": false,
+    "pause": false,
+    "resume": false,
+    "goToBase": false
+  },
+  "availableServices": {
+    "findMe": "basic-1",
+    "generalInfo": "basic-1",
+    "houseCleaning": "basic-4",
+    "maps": "basic-2",
+    "preferences": "basic-2",
+    "schedule": "basic-2",
+    "spotCleaning": "basic-3"
+  },
+  "meta": {
+    "modelName": "BotVacD3Connected",
+    "firmware": "4.5.3-189"
+  }
+}

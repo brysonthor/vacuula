@@ -1,0 +1,9 @@
+{
+  "version": "1.1.1-b1",
+  "min_installer_version": "1.1.0-b3",
+  "gen3_port": 335,
+  "gen4_port": 3443,
+  "ha_ingress": false,
+  "timezone": "America/Denver",
+  "utc_offset_minutes": -420
+}

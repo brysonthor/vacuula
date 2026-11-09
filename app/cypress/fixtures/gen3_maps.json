@@ -1,0 +1,10 @@
+[
+  {
+    "id": "2026-10-26T23:27:11Z",
+    "robot": "OPS42417-7c38660f057e",
+    "name": "Main Floor",
+    "enabled": true,
+    "in_maps_list": true,
+    "base": [0.477316, 0.462674]
+  }
+]

@@ -3,6 +3,7 @@ describe('Sidebar Navigation Cycles', () => {
     const lokiSerial = '2126LB01A14101917'
 
     it('clicks through Sparkles, Loki, and Fleet Overview 3 times, checking active links and page re-renders', () => {
+        cy.setupVacuulaMocks()
         cy.visit('/')
         cy.get('h1').should('contain.text', 'Fleet Overview')
 

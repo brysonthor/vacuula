@@ -1,0 +1,22 @@
+{
+  "serial": "OPS42417-7c38660f057e",
+  "online": true,
+  "ip_address": "192.168.0.223",
+  "model": "BotVacD3Connected",
+  "firmware": "4.5.3-189",
+  "last_seen_at": "2026-11-09T22:07:13.462012+00:00",
+  "info": {
+    "battery": {
+      "totalCharges": 142,
+      "vendor": "Panasonic",
+      "timeToEmpty": 45,
+      "timeToFullCharge": 60
+    },
+    "charge_cycles": 142
+  },
+  "stats": {
+    "total_cleaned_area": "450.5 m²",
+    "total_clean_time": "12.5 hrs"
+  },
+  "last_state": {}
+}

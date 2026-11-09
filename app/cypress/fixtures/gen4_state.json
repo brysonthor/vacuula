@@ -1,0 +1,30 @@
+{
+  "version": "1.7.0",
+  "status": 200,
+  "body": {
+    "state": 1,
+    "action": 0,
+    "errors": [],
+    "available_commands": {
+      "start": true,
+      "cancel": false,
+      "pause": false,
+      "resume": false,
+      "return_to_base": false
+    },
+    "details": {
+      "is_charging": false,
+      "is_docked": true,
+      "charge": 98,
+      "base_type": "standard",
+      "is_quickboost": false,
+      "quickboost_estimate": -1
+    },
+    "cleaning_center": {
+      "base_error": null,
+      "bag_status": "bag_ok",
+      "is_extracting": false
+    },
+    "ability": "state.show"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "discord_webhook_url": "https://discord.com/api/webhooks/123456789/abcdefghijk",
+  "enabled": true,
+  "events": {
+    "connectivity": false,
+    "cleaning": true,
+    "errors": true,
+    "run_summary": true,
+    "consumables": true
+  }
+}
