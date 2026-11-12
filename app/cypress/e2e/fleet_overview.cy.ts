@@ -37,7 +37,7 @@ describe('Fleet Overview Acceptance Tests', () => {
 
         // 5. Verify Offline robot card
         cy.contains('article', 'Dustmite').within(() => {
-            cy.contains('Offline').should('be.visible')
+            cy.get('[class*="statusPill"] [role="img"][aria-label="Offline"][data-state="offline"]').should('be.visible')
             cy.contains('button', 'Clean').should('be.disabled')
             cy.contains('button', 'Locate').should('be.disabled')
         })

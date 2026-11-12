@@ -1,0 +1,241 @@
+.root {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.6rem;
+    height: 2.6rem;
+    flex-shrink: 0;
+}
+
+.svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.stateCleaning {
+    color: var(--accent);
+}
+
+.stateDocked {
+    color: var(--success);
+}
+
+.stateDocking {
+    color: var(--info);
+}
+
+.stateIdle {
+    color: var(--success);
+}
+
+.statePaused {
+    color: var(--warn);
+}
+
+.stateError {
+    color: var(--err);
+}
+
+.stateUpdating {
+    color: var(--info);
+}
+
+.stateOffline,
+.stateUnknown {
+    color: var(--text-muted);
+}
+
+/* Transform origins for SVG sub-elements */
+.spinCenter {
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+.pulseCenter {
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .cleanGlide {
+        animation: cleanGlide 2s ease-in-out infinite;
+    }
+
+    .cleanSpin {
+        animation: spin 1.6s linear infinite;
+    }
+
+    .cleanTrail1 {
+        animation: trailFade 1.4s ease-out infinite;
+    }
+
+    .cleanTrail2 {
+        animation: trailFade 1.4s ease-out 0.45s infinite;
+    }
+
+    .dockingBot {
+        animation: dockingSlide 1.8s ease-in-out infinite;
+    }
+
+    .dockingChevron1 {
+        animation: chevronPulse 1.4s ease-in-out infinite;
+    }
+
+    .dockingChevron2 {
+        animation: chevronPulse 1.4s ease-in-out 0.3s infinite;
+    }
+
+    .chargeBolt {
+        animation: boltPulse 1.6s ease-in-out infinite;
+    }
+
+    .calmBreath {
+        animation: calmBreath 2.6s ease-in-out infinite;
+    }
+
+    .idleRadar {
+        animation: radarPulse 2.4s ease-out infinite;
+    }
+
+    .pausePulse {
+        animation: calmBreath 2.2s ease-in-out infinite;
+    }
+
+    .errorPulse {
+        animation: errorPulse 1.8s ease-in-out infinite;
+    }
+
+    .offlineFade {
+        animation: offlineBreath 3s ease-in-out infinite;
+    }
+
+    .updateSpin {
+        animation: spin 1.8s linear infinite;
+    }
+
+    .dot1 {
+        animation: dotBounce 1.5s ease-in-out infinite;
+    }
+
+    .dot2 {
+        animation: dotBounce 1.5s ease-in-out 0.25s infinite;
+    }
+
+    .dot3 {
+        animation: dotBounce 1.5s ease-in-out 0.5s infinite;
+    }
+}
+
+@keyframes cleanGlide {
+    0%, 100% {
+        transform: translateX(-1.5px);
+    }
+    50% {
+        transform: translateX(2px);
+    }
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes trailFade {
+    0% {
+        opacity: 0.9;
+        transform: translateX(0) scale(1);
+    }
+    100% {
+        opacity: 0.2;
+        transform: translateX(-4px) scale(0.6);
+    }
+}
+
+@keyframes dockingSlide {
+    0%, 100% {
+        transform: translateX(-2px);
+    }
+    50% {
+        transform: translateX(1.5px);
+    }
+}
+
+@keyframes chevronPulse {
+    0%, 100% {
+        opacity: 0.35;
+        transform: translateX(-1px);
+    }
+    50% {
+        opacity: 1;
+        transform: translateX(1.5px);
+    }
+}
+
+@keyframes boltPulse {
+    0%, 100% {
+        opacity: 0.75;
+        transform: scale(0.95);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+}
+
+@keyframes calmBreath {
+    0%, 100% {
+        opacity: 0.7;
+        transform: scale(0.97);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.04);
+    }
+}
+
+@keyframes radarPulse {
+    0% {
+        opacity: 0.85;
+        transform: scale(0.8);
+    }
+    75%, 100% {
+        opacity: 0.2;
+        transform: scale(1.22);
+    }
+}
+
+@keyframes errorPulse {
+    0%, 100% {
+        opacity: 0.8;
+        transform: scale(0.96);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.06);
+    }
+}
+
+@keyframes offlineBreath {
+    0%, 100% {
+        opacity: 0.55;
+    }
+    50% {
+        opacity: 0.9;
+    }
+}
+
+@keyframes dotBounce {
+    0%, 100% {
+        opacity: 0.45;
+        transform: translateY(0);
+    }
+    50% {
+        opacity: 1;
+        transform: translateY(-2px);
+    }
+}

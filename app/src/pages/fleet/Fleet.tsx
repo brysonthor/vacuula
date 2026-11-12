@@ -5,11 +5,13 @@ import TimeAgo from 'react-timeago'
 import {
     IoArrowForward,
     IoBarChartOutline,
+    IoCalendarClearOutline,
     IoCalendarOutline,
     IoCogOutline,
     IoDownloadOutline,
     IoHardwareChipOutline,
     IoMapOutline,
+    IoPauseCircleOutline,
     IoTerminalOutline,
 } from 'react-icons/io5'
 import { IoMdRefresh } from 'react-icons/io'
@@ -24,10 +26,12 @@ import { GEN4_COMMANDS } from '../../http/gen4'
 import { useTimeAgoFormatter } from '../../i18n/timeago'
 import { useMascot } from '../../mascot'
 import Loading from '../loading/loading'
-import { Neato, RobotType, type QuickRobotEntry } from '../../types'
+import { Neato, RobotType, type QuickRobotEntry, type ServerScheduleItem } from '../../types'
 import { getGen3CleaningMode, getGen3NavigationMode, getGen4CleaningMode, getGen4NavigationMode } from '../../utils/modes'
 import HeaderLoadingSpinner from '../../components/loading/HeaderLoadingSpinner'
 import { computeFleetAverageUptimeSeconds, computeRobotUptimeSeconds, formatUptime } from '../../utils/uptime'
+import { summarizeRobotSchedule, type NativeScheduleEventLike, type RobotScheduleSummary } from '../../utils/scheduleSummary'
+import RobotStateSvg from './RobotStateSvg'
 import styles from './Fleet.module.scss'
 
 export default function Fleet() {
@@ -37,6 +41,7 @@ export default function Fleet() {
     const timeAgoFormatter = useTimeAgoFormatter()
     const navigate = useNavigate()
     const [dockingSerials, setDockingSerials] = useState<Record<string, boolean>>({})
+    const [scheduleSummaries, setScheduleSummaries] = useState<Record<string, RobotScheduleSummary>>({})
     const [now, setNow] = useState(() => Date.now())
 
     useEffect(() => {
@@ -46,12 +51,88 @@ export default function Fleet() {
         return () => clearInterval(timer)
     }, [])
 
+    const robotFetchKey = robots
+        ? Object.entries(robots)
+            .map(([serial, info]) => `${serial}:${info.connected ? 1 : 0}:${info.type}`)
+            .sort()
+            .join('|')
+        : ''
+
+    useEffect(() => {
+        if (!robots || !robotFetchKey) return
+        let cancelled = false
+
+        const entriesList = Object.entries(robots)
+        entriesList.forEach(([serial, info]) => {
+            const serverReq = typeof Http.getServerSchedules === 'function'
+                ? Http.getServerSchedules(serial)
+                : Promise.resolve({ data: [] as ServerScheduleItem[] })
+
+            const nativeReq = info.connected
+                ? (info.type === RobotType.NeatoGen3
+                    ? (typeof GEN3_COMMANDS.getSchedule === 'function' ? GEN3_COMMANDS.getSchedule(serial) : null)
+                    : (typeof GEN4_COMMANDS.getSchedule === 'function' ? GEN4_COMMANDS.getSchedule(serial) : null))
+                : null
+
+            Promise.allSettled([
+                serverReq,
+                nativeReq ?? Promise.resolve(null),
+            ]).then(([serverRes, nativeRes]) => {
+                if (cancelled) return
+
+                const serverChecked = serverRes.status === 'fulfilled'
+                const serverSchedules = serverChecked && Array.isArray(serverRes.value?.data)
+                    ? serverRes.value.data
+                    : []
+
+                let nativeChecked = false
+                let nativeEnabled = true
+                let nativeEvents: NativeScheduleEventLike[] = []
+
+                if (info.connected && nativeReq && nativeRes.status === 'fulfilled' && nativeRes.value) {
+                    if (info.type === RobotType.NeatoGen3) {
+                        const payload = (nativeRes.value as any)?.data?.data
+                        if (payload && typeof payload === 'object') {
+                            nativeChecked = true
+                            nativeEnabled = payload.enabled !== false
+                            nativeEvents = Array.isArray(payload.events) ? payload.events : []
+                        }
+                    } else {
+                        const payload = (nativeRes.value as any)?.data?.body
+                        if (payload && typeof payload === 'object') {
+                            nativeChecked = true
+                            nativeEnabled = payload.enabled !== false
+                            nativeEvents = Array.isArray(payload.events) ? payload.events : []
+                        }
+                    }
+                }
+
+                const summary = summarizeRobotSchedule({
+                    connected: !!info.connected,
+                    nativeChecked,
+                    nativeEnabled,
+                    nativeEvents,
+                    serverChecked,
+                    serverSchedules,
+                })
+
+                setScheduleSummaries(prev => ({ ...prev, [serial]: summary }))
+            })
+        })
+
+        return () => {
+            cancelled = true
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [robotFetchKey])
+
     if (!robots) return <Loading />
 
     const entries = Object.entries(robots)
     const onlineCount = entries.filter(([, r]) => r.connected).length
     const cleaningCount = entries.filter(([, r]) => r.connected && r.state_label === 'cleaning').length
     const alertCount = entries.filter(([, r]) => r.has_error).length
+    const scheduledCount = entries.filter(([serial]) => scheduleSummaries[serial]?.status === 'scheduled').length
 
     const avgUptimeSeconds = computeFleetAverageUptimeSeconds(robots, now)
     const fleetUptimeDisplay = avgUptimeSeconds !== null ? formatUptime(avgUptimeSeconds) : '--'
@@ -147,6 +228,19 @@ export default function Fleet() {
                 </div>
                 <div
                     className={styles.kpiCard}
+                    data-testid="kpi-scheduled"
+                    title={t('fleet.scheduledKpiTooltip', '{{scheduled}} of {{total}} robots have an active schedule', {
+                        scheduled: scheduledCount,
+                        total: entries.length,
+                    })}
+                >
+                    <span className={`${styles.kpiValue} ${scheduledCount > 0 ? styles.kpiSuccess : ''}`}>
+                        {scheduledCount}
+                    </span>
+                    <span className={styles.kpiLabel}>{t('fleet.scheduledKpi', 'Scheduled')}</span>
+                </div>
+                <div
+                    className={styles.kpiCard}
                     data-testid="kpi-uptime"
                     title={
                         onlineCount > 0
@@ -193,6 +287,20 @@ export default function Fleet() {
                 <section className={styles.cardsGrid}>
                     {entries.map(([serial, info]) => {
                         const queue = zoneQueues[serial]
+                        const scheduleSummary = scheduleSummaries[serial]
+                        const scheduleStatus = scheduleSummary?.status
+                        const scheduleTitle = scheduleStatus === 'scheduled'
+                            ? t('fleet.scheduleTooltipActive', 'Schedule active ({{native}} native, {{server}} server) — click to manage', {
+                                native: scheduleSummary.nativeActiveCount,
+                                server: scheduleSummary.serverActiveCount,
+                            })
+                            : scheduleStatus === 'paused'
+                                ? t('fleet.scheduleTooltipPaused', 'Schedule paused ({{total}} configured) — click to manage', {
+                                    total: scheduleSummary.totalCount,
+                                })
+                                : scheduleStatus === 'none'
+                                    ? t('fleet.scheduleTooltipNone', 'No cleaning schedule configured — click to set up')
+                                    : t('nav.schedule', 'Schedule')
                         const genLabel = info.type === RobotType.NeatoGen3 ? 'Gen 3' : 'Gen 4'
                         const stateDisplay = !info.connected
                             ? t('common.offline', 'Offline')
@@ -223,6 +331,36 @@ export default function Fleet() {
                                             <span className={styles.genBadge}>{genLabel}</span>
                                             {info.model && <span className={styles.metaTag}>{info.model}</span>}
                                             {info.firmware && <span className={styles.metaTag}>FW {info.firmware}</span>}
+                                            {scheduleStatus && scheduleStatus !== 'unknown' && scheduleStatus !== 'loading' && (
+                                                <button
+                                                    type="button"
+                                                    data-testid={`schedule-badge-${serial}`}
+                                                    className={`${styles.scheduleBadge} ${
+                                                        scheduleStatus === 'scheduled'
+                                                            ? styles.scheduleActive
+                                                            : scheduleStatus === 'paused'
+                                                                ? styles.schedulePaused
+                                                                : styles.scheduleNone
+                                                    }`}
+                                                    onClick={() => openRobot(serial, '/schedule')}
+                                                    title={scheduleTitle}
+                                                >
+                                                    {scheduleStatus === 'scheduled' ? (
+                                                        <IoCalendarOutline size={12} />
+                                                    ) : scheduleStatus === 'paused' ? (
+                                                        <IoPauseCircleOutline size={12} />
+                                                    ) : (
+                                                        <IoCalendarClearOutline size={12} />
+                                                    )}
+                                                    <span>
+                                                        {scheduleStatus === 'scheduled'
+                                                            ? t('fleet.scheduleActive', 'Scheduled')
+                                                            : scheduleStatus === 'paused'
+                                                                ? t('fleet.schedulePaused', 'Schedule Paused')
+                                                                : t('fleet.scheduleNone', 'No Schedule')}
+                                                    </span>
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                     <div className={styles.batteryWrap}>
@@ -238,7 +376,15 @@ export default function Fleet() {
 
                                 <div className={styles.statusStrip}>
                                     <div className={styles.statusMain}>
-                                        <span className={styles.statusPill}>{stateDisplay}</span>
+                                        <span className={styles.statusPill}>
+                                            <RobotStateSvg
+                                                connected={!!info.connected}
+                                                stateLabel={info.state_label}
+                                                hasError={!!info.has_error}
+                                                isCharging={!!(info.connected && info.is_charging)}
+                                                label={stateDisplay}
+                                            />
+                                        </span>
                                         {info.ip_address && (
                                             <span className={styles.ipLabel}>{info.ip_address}</span>
                                         )}
@@ -334,11 +480,25 @@ export default function Fleet() {
                                         </button>
                                         <button
                                             type="button"
-                                            className={styles.iconLinkBtn}
+                                            data-testid={`schedule-shortcut-${serial}`}
+                                            className={`${styles.iconLinkBtn} ${
+                                                scheduleStatus === 'scheduled'
+                                                    ? styles.iconLinkScheduled
+                                                    : scheduleStatus === 'paused'
+                                                        ? styles.iconLinkPaused
+                                                        : ''
+                                            }`}
                                             onClick={() => openRobot(serial, '/schedule')}
-                                            title={t('nav.schedule', 'Schedule')}
+                                            title={scheduleTitle}
                                         >
                                             <IoCalendarOutline size={17} />
+                                            {(scheduleStatus === 'scheduled' || scheduleStatus === 'paused') && (
+                                                <span
+                                                    className={`${styles.iconStatusDot} ${
+                                                        scheduleStatus === 'paused' ? styles.iconStatusDotPaused : ''
+                                                    }`}
+                                                />
+                                            )}
                                         </button>
                                         <button
                                             type="button"
