@@ -66,7 +66,6 @@ function ScheduleGen3() {
     const [startTime, setStartTime] = useState('09:00')
     const [runAtLocal, setRunAtLocal] = useState(getTomorrowMorningLocalIso())
     const [mode, setMode] = useState<CleaningMode>(CleaningMode.NORMAL)
-    const [modifier, setModifier] = useState<CleaningModifier>(CleaningModifier.NORMAL)
     const [navMode, setNavMode] = useState<CleaningNavigationMode>(CleaningNavigationMode.NORMAL)
     const [selectedZones, setSelectedZones] = useState<string[]>([])
     const [routineName, setRoutineName] = useState('')
@@ -134,7 +133,6 @@ function ScheduleGen3() {
         setSelectedDays([RobotDay.MONDAY])
         setStartTime('09:00')
         setMode(CleaningMode.NORMAL)
-        setModifier(CleaningModifier.NORMAL)
         setNavMode(CleaningNavigationMode.NORMAL)
         setSelectedZones([])
         setPanelOpen(true)
@@ -147,7 +145,6 @@ function ScheduleGen3() {
         setRoutineName('')
         setRunAtLocal(getTomorrowMorningLocalIso())
         setMode(CleaningMode.NORMAL)
-        setModifier(CleaningModifier.NORMAL)
         setNavMode(CleaningNavigationMode.NORMAL)
         setSelectedZones([])
         setPanelOpen(true)
@@ -185,7 +182,6 @@ function ScheduleGen3() {
         }
         setSelectedDays((item.days ?? []).map(d => codeToRobotDay[d] ?? 1))
         setMode((item.payload?.mode as CleaningMode) ?? CleaningMode.NORMAL)
-        setModifier((item.payload?.modifier as CleaningModifier) ?? CleaningModifier.NORMAL)
         setNavMode((item.payload?.navigationMode as CleaningNavigationMode) ?? CleaningNavigationMode.NORMAL)
         setSelectedZones((item.payload?.zones ?? []).map(z => z.id))
         setPanelOpen(true)
@@ -204,13 +200,13 @@ function ScheduleGen3() {
                 payload: {
                     category: selectedZones.length > 0 ? 4 : 2,
                     mode,
-                    modifier,
+                    modifier: CleaningModifier.NORMAL,
                     navigationMode: navMode,
                     zones: selectedZones.map(id => ({
                         id,
                         name: zoneOptions.find(o => o.value === id)?.rawName ?? id,
                         mode,
-                        modifier,
+                        modifier: CleaningModifier.NORMAL,
                         navigationMode: navMode,
                     })),
                 },
@@ -220,10 +216,9 @@ function ScheduleGen3() {
             return
         }
 
-        // Recurring: if >= 2 zones OR double pass OR editing an existing server schedule -> save as Server Multi-Zone Schedule
+        // Recurring: if >= 2 zones OR editing an existing server schedule -> save as Server Multi-Zone Schedule
         const needsServerOrchestration =
             selectedZones.length >= 2 ||
-            modifier === CleaningModifier.DOUBLE ||
             !!editingServerId
 
         if (needsServerOrchestration) {
@@ -242,13 +237,13 @@ function ScheduleGen3() {
                 payload: {
                     category: selectedZones.length > 0 ? 4 : 2,
                     mode,
-                    modifier,
+                    modifier: CleaningModifier.NORMAL,
                     navigationMode: navMode,
                     zones: selectedZones.map(id => ({
                         id,
                         name: zoneOptions.find(o => o.value === id)?.rawName ?? id,
                         mode,
-                        modifier,
+                        modifier: CleaningModifier.NORMAL,
                         navigationMode: navMode,
                     })),
                 },
@@ -544,13 +539,6 @@ function ScheduleGen3() {
                         ]}
                         value={mode}
                         onChange={val => setMode(Number(val) as CleaningMode)}
-                    />
-
-                    <Input
-                        type="switch"
-                        label={t('home.doublePass', 'Double Pass (2×)')}
-                        value={modifier === CleaningModifier.DOUBLE}
-                        onChange={v => setModifier(v ? CleaningModifier.DOUBLE : CleaningModifier.NORMAL)}
                     />
 
                     {zoneOptions.length > 0 && (

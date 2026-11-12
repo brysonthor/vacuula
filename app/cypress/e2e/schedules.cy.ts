@@ -54,20 +54,23 @@ describe('Cleaning Schedules Acceptance Tests', () => {
         cy.contains('button', 'Skip Next Clean (24h)').should('be.visible')
     })
 
-    it('creates a recurring server routine with Double Pass', () => {
+    it('creates a one-off server routine and verifies no double pass toggle in schedule editor', () => {
         openSparklesSchedules()
 
-        // Open Add Recurring Schedule panel
+        // Open Add Schedule panel
         cy.contains('button', 'New schedule').click()
         cy.contains('Add event').should('be.visible')
 
-        // Toggle Double Pass to trigger Server Orchestration
-        cy.contains('Double Pass (2×)').parent().find('input[type="checkbox"]').check({ force: true })
+        // Verify Double Pass is not present in schedule editor
+        cy.contains('Double Pass (2×)').should('not.exist')
+
+        // Switch to One-Off Scheduled Clean
+        cy.contains('label', 'Schedule Type').parent().find('select').select('one_off')
 
         // Click Save
         cy.contains('button', 'Save').click()
         cy.wait('@createSchedule').then(interception => {
-            expect(interception.request.body.payload.modifier).to.eq(2)
+            expect(interception.request.body.schedule_type).to.eq('one_off')
         })
     })
 
