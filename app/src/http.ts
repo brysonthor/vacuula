@@ -35,6 +35,8 @@ export interface ServerInfo {
 
   timezone: string
   utc_offset_minutes: number
+  uptime?: number
+  started_at?: string
 }
 
 const instance = axios.create({

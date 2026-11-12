@@ -5,5 +5,7 @@
   "gen4_port": 3443,
   "ha_ingress": false,
   "timezone": "America/Denver",
-  "utc_offset_minutes": -420
+  "utc_offset_minutes": -420,
+  "uptime": 12345,
+  "started_at": "2026-11-11T18:47:22.000Z"
 }

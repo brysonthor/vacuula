@@ -3,6 +3,8 @@ import json
 import logging
 import queue
 import threading
+import time
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 
@@ -49,6 +51,19 @@ def robots_snapshot() -> dict:
 
     telemetry_map = get_all_robot_telemetry()
 
+    now = time.time()
+    def _conn_meta(serial: str) -> dict:
+        conn = robot_connections.get(serial)
+        if conn is not None and getattr(conn, "connected_at", None):
+            return {
+                "connected_at": datetime.fromtimestamp(conn.connected_at, tz=timezone.utc).isoformat(),
+                "uptime": max(0, int(now - conn.connected_at)),
+            }
+        return {
+            "connected_at": None,
+            "uptime": None,
+        }
+
     return {
         robot.serial: {
             "type": robot.type,
@@ -57,6 +72,7 @@ def robots_snapshot() -> dict:
             **({"label_serial": labels.get(robot.serial)} if robot.type == "neato.gen4" else {}),
             **({"installed_with": installed_with_map.get(robot.serial)} if robot.type == "neato.gen3" else {}),
             **extract_fleet_summary(robot.serial, robot.type, telemetry_map.get(robot.serial)),
+            **_conn_meta(robot.serial),
         }
         for robot in robots
     }

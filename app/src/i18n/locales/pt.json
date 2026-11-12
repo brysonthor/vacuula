@@ -182,6 +182,14 @@
     "fleet": {
         "title": "Frota de Robots",
         "subtitle": "Estado em tempo real, bateria e ações rápidas para todos os robots associados.",
+        "linkedRobots": "Robots Associados",
+        "onlineNow": "Online Agora",
+        "activeCleanings": "A Limpar",
+        "needsAttention": "Alertas",
+        "uptime": "Tempo de Atividade",
+        "fleetUptime": "Tempo de Atividade da Frota",
+        "avgUptime": "Tempo Médio",
+        "serverUptime": "Tempo de Atividade do Servidor",
         "openWorkspace": "Abrir Painel"
     },
     "drive": {

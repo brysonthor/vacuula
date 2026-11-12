@@ -188,6 +188,14 @@
     "fleet": {
         "title": "Fleet Overview",
         "subtitle": "Real-time status, battery telemetry, and quick actions across all linked robots.",
+        "linkedRobots": "Linked Robots",
+        "onlineNow": "Online Now",
+        "activeCleanings": "Cleaning",
+        "needsAttention": "Alerts",
+        "uptime": "Uptime",
+        "fleetUptime": "Fleet Uptime",
+        "avgUptime": "Avg Uptime",
+        "serverUptime": "Server Uptime",
         "openWorkspace": "Open Workspace"
     },
     "drive": {

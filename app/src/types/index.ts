@@ -21,6 +21,8 @@ export interface QuickRobotEntry {
     firmware?: string | null
     ip_address?: string | null
     last_seen_at?: string | null
+    connected_at?: string | null
+    uptime?: number | null
     charge?: number | null
     is_docked?: boolean | null
     is_charging?: boolean | null

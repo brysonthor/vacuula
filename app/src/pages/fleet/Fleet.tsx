@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import TimeAgo from 'react-timeago'
@@ -27,6 +27,7 @@ import Loading from '../loading/loading'
 import { Neato, RobotType, type QuickRobotEntry } from '../../types'
 import { getGen3CleaningMode, getGen3NavigationMode, getGen4CleaningMode, getGen4NavigationMode } from '../../utils/modes'
 import HeaderLoadingSpinner from '../../components/loading/HeaderLoadingSpinner'
+import { computeFleetAverageUptimeSeconds, computeRobotUptimeSeconds, formatUptime } from '../../utils/uptime'
 import styles from './Fleet.module.scss'
 
 export default function Fleet() {
@@ -36,6 +37,14 @@ export default function Fleet() {
     const timeAgoFormatter = useTimeAgoFormatter()
     const navigate = useNavigate()
     const [dockingSerials, setDockingSerials] = useState<Record<string, boolean>>({})
+    const [now, setNow] = useState(() => Date.now())
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setNow(Date.now())
+        }, 1000)
+        return () => clearInterval(timer)
+    }, [])
 
     if (!robots) return <Loading />
 
@@ -43,6 +52,10 @@ export default function Fleet() {
     const onlineCount = entries.filter(([, r]) => r.connected).length
     const cleaningCount = entries.filter(([, r]) => r.connected && r.state_label === 'cleaning').length
     const alertCount = entries.filter(([, r]) => r.has_error).length
+
+    const avgUptimeSeconds = computeFleetAverageUptimeSeconds(robots, now)
+    const fleetUptimeDisplay = avgUptimeSeconds !== null ? formatUptime(avgUptimeSeconds) : '--'
+
 
     const openRobot = (serial: string, subPath = '') => {
         selectRobot(serial)
@@ -132,6 +145,22 @@ export default function Fleet() {
                     <span className={`${styles.kpiValue} ${alertCount > 0 ? styles.kpiErr : ''}`}>{alertCount}</span>
                     <span className={styles.kpiLabel}>{t('fleet.needsAttention', 'Alerts')}</span>
                 </div>
+                <div
+                    className={styles.kpiCard}
+                    data-testid="kpi-uptime"
+                    title={
+                        onlineCount > 0
+                            ? t('fleet.avgUptimeTooltip', 'Average connection uptime across {{count}} online robot(s)', {
+                                  count: onlineCount,
+                              })
+                            : undefined
+                    }
+                >
+                    <span className={`${styles.kpiValue} ${onlineCount > 0 ? styles.kpiAccent : ''} ${styles.kpiUptime}`}>
+                        {fleetUptimeDisplay}
+                    </span>
+                    <span className={styles.kpiLabel}>{t('fleet.fleetUptime', 'Fleet Uptime')}</span>
+                </div>
             </section>
 
             {entries.length === 0 ? (
@@ -218,6 +247,12 @@ export default function Fleet() {
                                         <span className={styles.lastSeen}>
                                             {t('fleet.lastSeen', 'Seen')}{' '}
                                             <TimeAgo date={info.last_seen_at} formatter={timeAgoFormatter} />
+                                        </span>
+                                    )}
+                                    {info.connected && (
+                                        <span className={styles.robotUptime} data-testid={`uptime-${serial}`}>
+                                            {t('fleet.uptime', 'Uptime')}{' '}
+                                            {formatUptime(computeRobotUptimeSeconds(info, now) ?? 0)}
                                         </span>
                                     )}
                                 </div>

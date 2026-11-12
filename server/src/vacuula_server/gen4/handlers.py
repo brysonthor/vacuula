@@ -45,6 +45,7 @@ def handle_login(rc: RobotConn, msg):
         return
     
     rc.serial = serial
+    rc.connected_at = time.time()
 
     old_rc = robot_connections.get(serial)
     if old_rc and old_rc is not rc:

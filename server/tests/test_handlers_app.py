@@ -50,6 +50,11 @@ def test_get_server_info():
     assert "version" in req.data
     assert "timezone" in req.data
     assert "utc_offset_minutes" in req.data
+    assert "uptime" in req.data
+    assert "started_at" in req.data
+    assert isinstance(req.data["uptime"], int)
+    assert req.data["uptime"] >= 0
+    assert isinstance(req.data["started_at"], str)
 
 
 def test_get_robots():

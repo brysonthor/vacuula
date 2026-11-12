@@ -4,6 +4,7 @@ from vacuula_server.generation import Generation
 from socketserver import StreamRequestHandler
 from ssl import SSLSocket
 import threading
+import time
 # Shared robot connection
 
 class Gen2Gen3Conn:
@@ -19,10 +20,11 @@ class Gen4Conn:
         self.socket = socket
 
 class RobotConn:
-    def __init__(self, serial: str, gen: Generation, conn: Gen2Gen3Conn | Gen4Conn):
+    def __init__(self, serial: str, gen: Generation, conn: Gen2Gen3Conn | Gen4Conn, connected_at: float | None = None):
         self.serial = serial
         self.gen = gen
         self.conn = conn
+        self.connected_at: float = connected_at if connected_at is not None else time.time()
         # self.addr = addr
 
         self.stop_event = threading.Event()

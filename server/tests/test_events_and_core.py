@@ -19,7 +19,21 @@ def test_robots_snapshot():
     assert serial in snap
     assert snap[serial]["name"] == "SnapshotBot"
     assert snap[serial]["type"] == "neato.gen3"
-    assert "connected" in snap[serial]
+    assert snap[serial]["connected"] is False
+    assert snap[serial]["connected_at"] is None
+    assert snap[serial]["uptime"] is None
+
+    from vacuula_server.state import robot_connections
+    rc = RobotConn(serial, Generation.GEN3, MagicMock(), connected_at=100.0)
+    robot_connections[serial] = rc
+    try:
+        snap_connected = events.robots_snapshot()
+        assert snap_connected[serial]["connected"] is True
+        assert snap_connected[serial]["connected_at"] is not None
+        assert isinstance(snap_connected[serial]["uptime"], int)
+        assert snap_connected[serial]["uptime"] > 0
+    finally:
+        robot_connections.pop(serial, None)
 
 
 def test_broadcast_and_notify_robots_changed():

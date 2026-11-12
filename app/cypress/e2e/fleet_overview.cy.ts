@@ -14,6 +14,8 @@ describe('Fleet Overview Acceptance Tests', () => {
         cy.get('section[aria-label="Fleet summary"]').within(() => {
             cy.contains('Linked Robots').prev().should('contain.text', '3')
             cy.contains('Online Now').prev().should('contain.text', '2')
+            cy.contains('Fleet Uptime').should('be.visible')
+            cy.get('[data-testid="kpi-uptime"]').should('be.visible')
         })
 
         // 3. Verify robot cards rendered
@@ -27,6 +29,7 @@ describe('Fleet Overview Acceptance Tests', () => {
             cy.contains('BotVacD3Connected').should('be.visible')
             cy.get('[class*="statusPill"]').should('be.visible')
             cy.contains('73').should('be.visible')
+            cy.contains('Uptime').should('be.visible')
             // Quick action buttons
             cy.contains('button', 'Clean').should('not.be.disabled')
             cy.contains('button', 'Locate').should('not.be.disabled')

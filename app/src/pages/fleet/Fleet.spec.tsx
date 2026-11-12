@@ -134,4 +134,84 @@ describe('Fleet Component', () => {
             expect(mockDock).toHaveBeenCalledWith('gen3-serial')
         })
     })
+
+    it('renders fleet uptime KPI and individual robot uptime counter for online robots', () => {
+        const twoHoursFifteenMinThirtySec = 2 * 3600 + 15 * 60 + 30
+        mockUseApp.mockReturnValue({
+            robots: {
+                'sparkles-serial': {
+                    type: 'neato.gen3',
+                    name: 'Sparkles',
+                    connected: true,
+                    charge: 80,
+                    is_docked: true,
+                    is_charging: false,
+                    state_label: 'docked',
+                    has_error: false,
+                    model: 'BotVacD3Connected',
+                    uptime: twoHoursFifteenMinThirtySec,
+                },
+                'dustmite-serial': {
+                    type: 'neato.gen3',
+                    name: 'Dustmite',
+                    connected: false,
+                    charge: 10,
+                    is_docked: false,
+                    is_charging: false,
+                    state_label: 'offline',
+                    has_error: false,
+                    model: 'BotVacD5Connected',
+                    last_seen_at: new Date().toISOString(),
+                },
+            },
+            selectRobot: mockSelectRobot,
+            zoneQueues: {},
+            serverInfo: null,
+        })
+
+        render(<Fleet />)
+
+        // 1. Check Fleet summary KPI card for Fleet Uptime
+        const kpiUptime = screen.getByTestId('kpi-uptime')
+        expect(kpiUptime).toBeInTheDocument()
+        expect(kpiUptime).toHaveTextContent('2h 15m 30s')
+        expect(screen.getByText('Fleet Uptime')).toBeInTheDocument()
+
+        // 2. Check Sparkles (online) has its own robot uptime counter
+        const robotUptime = screen.getByTestId('uptime-sparkles-serial')
+        expect(robotUptime).toBeInTheDocument()
+        expect(robotUptime).toHaveTextContent('2h 15m 30s')
+
+        // 3. Check Dustmite (offline) does not have robot uptime counter, shows "Seen"
+        expect(screen.queryByTestId('uptime-dustmite-serial')).not.toBeInTheDocument()
+        expect(screen.getByText(/Seen/i)).toBeInTheDocument()
+    })
+
+    it('renders -- for fleet uptime when all robots are offline', () => {
+        mockUseApp.mockReturnValue({
+            robots: {
+                'dustmite-serial': {
+                    type: 'neato.gen3',
+                    name: 'Dustmite',
+                    connected: false,
+                    charge: 10,
+                    is_docked: false,
+                    is_charging: false,
+                    state_label: 'offline',
+                    has_error: false,
+                    model: 'BotVacD5Connected',
+                    last_seen_at: new Date().toISOString(),
+                },
+            },
+            selectRobot: mockSelectRobot,
+            zoneQueues: {},
+            serverInfo: null,
+        })
+
+        render(<Fleet />)
+
+        const kpiUptime = screen.getByTestId('kpi-uptime')
+        expect(kpiUptime).toBeInTheDocument()
+        expect(kpiUptime).toHaveTextContent('--')
+    })
 })

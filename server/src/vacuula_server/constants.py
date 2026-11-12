@@ -1,4 +1,6 @@
 import sys
+import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -7,6 +9,9 @@ from pathlib import Path
 # --------------------------------------------------------------------------
 from vacuula_server._build_version import APP_VERSION
 MINIMUM_INSTALLER_VERSION = "1.1.0-b3"
+
+SERVER_START_TIME: float = time.time()
+SERVER_STARTED_AT: str = datetime.now(timezone.utc).isoformat()
 
 # --------------------------------------------------------------------------
 # Application data directories

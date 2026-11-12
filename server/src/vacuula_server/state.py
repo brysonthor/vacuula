@@ -291,6 +291,8 @@ def extract_fleet_summary(
         "firmware": (telemetry or {}).get("firmware"),
         "ip_address": (telemetry or {}).get("ip_address"),
         "last_seen_at": (telemetry or {}).get("last_seen_at"),
+        "connected_at": None,
+        "uptime": None,
         "charge": None,
         "is_docked": None,
         "is_charging": None,
