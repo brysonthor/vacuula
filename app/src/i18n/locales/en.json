@@ -196,7 +196,15 @@
         "fleetUptime": "Fleet Uptime",
         "avgUptime": "Avg Uptime",
         "serverUptime": "Server Uptime",
-        "openWorkspace": "Open Workspace"
+        "openWorkspace": "Open Workspace",
+        "scheduledKpi": "Scheduled",
+        "scheduledKpiTooltip": "{{scheduled}} of {{total}} robots have an active schedule",
+        "scheduleActive": "Scheduled",
+        "schedulePaused": "Schedule Paused",
+        "scheduleNone": "No Schedule",
+        "scheduleTooltipActive": "Schedule active ({{native}} native, {{server}} server) — click to manage",
+        "scheduleTooltipPaused": "Schedule paused ({{total}} configured) — click to manage",
+        "scheduleTooltipNone": "No cleaning schedule configured — click to set up"
     },
     "drive": {
         "title": "Manual Remote Drive",
